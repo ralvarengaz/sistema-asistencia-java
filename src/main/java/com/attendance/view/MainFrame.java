@@ -238,9 +238,7 @@ public class MainFrame extends JFrame {
     
     private void showAttendance() {
         logger.info("Mostrando Panel de Asistencia");
-        JPanel panel = createPlaceholderPanel("Marcar Asistencia", 
-            "Panel de marcación de asistencia en desarrollo...");
-        switchPanel(panel);
+        switchPanel(new AttendancePanel());
     }
     
     private void showEnroll() {
@@ -250,9 +248,23 @@ public class MainFrame extends JFrame {
     
     private void showUsers() {
         logger.info("Mostrando Panel de Usuarios");
-        JPanel panel = createPlaceholderPanel("Gestión de Usuarios", 
-            "Panel de gestión de usuarios en desarrollo...");
-        switchPanel(panel);
+        try {
+            UsersPanel usersPanel = new UsersPanel();
+            switchPanel(usersPanel);
+            logger.info("UsersPanel cargado correctamente");
+        } catch (Exception e) {
+            logger.error("Error al cargar UsersPanel", e);
+            e.printStackTrace();
+            
+            JOptionPane.showMessageDialog(this,
+                "Error al cargar el modulo de usuarios:\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+            
+            JPanel panel = createPlaceholderPanel("Gestion de Usuarios", 
+                "Error al cargar el modulo.");
+            switchPanel(panel);
+        }
     }
     
     private void showReports() {
@@ -287,6 +299,19 @@ public class MainFrame extends JFrame {
     }
     
     private void switchPanel(JPanel newPanel) {
+        // Limpiar recursos del panel anterior si tiene método cleanup
+        if (currentPanel != null) {
+            try {
+                java.lang.reflect.Method cleanupMethod = currentPanel.getClass().getMethod("cleanup");
+                cleanupMethod.invoke(currentPanel);
+                logger.debug("Recursos del panel anterior liberados");
+            } catch (NoSuchMethodException e) {
+                // El panel no tiene método cleanup, ignorar
+            } catch (Exception e) {
+                logger.error("Error al limpiar recursos del panel anterior", e);
+            }
+        }
+        
         contentPanel.removeAll();
         contentPanel.add(newPanel, BorderLayout.CENTER);
         contentPanel.revalidate();
@@ -317,6 +342,20 @@ public class MainFrame extends JFrame {
         
         if (option == JOptionPane.YES_OPTION) {
             logger.info("Usuario {} cerró sesión", currentUser);
+            
+            // Limpiar recursos del panel actual antes de cerrar
+            if (currentPanel != null) {
+                try {
+                    java.lang.reflect.Method cleanupMethod = currentPanel.getClass().getMethod("cleanup");
+                    cleanupMethod.invoke(currentPanel);
+                    logger.debug("Recursos limpiados antes de cerrar sesión");
+                } catch (NoSuchMethodException e) {
+                    // El panel no tiene método cleanup, ignorar
+                } catch (Exception e) {
+                    logger.error("Error al limpiar recursos antes de cerrar sesión", e);
+                }
+            }
+            
             this.dispose();
             
             // Volver a mostrar login
@@ -333,5 +372,23 @@ public class MainFrame extends JFrame {
         setSize(1400, 800);
         setLocationRelativeTo(null);
         setMinimumSize(new Dimension(1200, 700));
+        
+        // Agregar WindowListener para limpiar recursos al cerrar
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                if (currentPanel != null) {
+                    try {
+                        java.lang.reflect.Method cleanupMethod = currentPanel.getClass().getMethod("cleanup");
+                        cleanupMethod.invoke(currentPanel);
+                        logger.debug("Recursos limpiados al cerrar ventana");
+                    } catch (NoSuchMethodException e) {
+                        // El panel no tiene método cleanup, ignorar
+                    } catch (Exception e) {
+                        logger.error("Error al limpiar recursos al cerrar", e);
+                    }
+                }
+            }
+        });
     }
 }
