@@ -87,7 +87,7 @@ public class UserFormDialog extends JDialog {
         int row = 0;
         
         // DNI
-        addFormField(formPanel, gbc, row++, "DNI:", 
+        addFormField(formPanel, gbc, row++, "C.I.N.:", 
             txtDni = createTextField(20, !isEditing));
         
         // Nombres
@@ -324,7 +324,7 @@ public class UserFormDialog extends JDialog {
     private void saveUser() {
         // Validaciones
         if (txtDni.getText().trim().isEmpty()) {
-            showError("El DNI es obligatorio");
+            showError("El C.I.N.: es obligatorio");
             txtDni.requestFocus();
             return;
         }

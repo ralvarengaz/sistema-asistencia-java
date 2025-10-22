@@ -16,9 +16,10 @@ import java.util.List;
 
 /**
  * Panel para enrolar huellas dactilares
+ * Versión mejorada con UI/UX optimizada
  * 
  * @author Sistema Biométrico
- * @version 1.0
+ * @version 2.0
  */
 public class EnrollPanel extends JPanel {
     
@@ -105,7 +106,7 @@ public class EnrollPanel extends JPanel {
         ));
         
         // Sección de conexión
-        JPanel connectionSection = createSection("1. Conexión con Arduino");
+        JPanel connectionSection = createSection("1. Conexion con Arduino");
         
         JPanel portPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         portPanel.setOpaque(false);
@@ -117,19 +118,19 @@ public class EnrollPanel extends JPanel {
         cmbPorts.setPreferredSize(new Dimension(120, 30));
         cmbPorts.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         
-        btnRefreshPorts = new JButton("🔄");
-        btnRefreshPorts.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        btnRefreshPorts.setPreferredSize(new Dimension(40, 30));
+        btnRefreshPorts = new JButton("Actualizar");
+        btnRefreshPorts.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnRefreshPorts.setPreferredSize(new Dimension(90, 30));
         btnRefreshPorts.setToolTipText("Actualizar puertos");
         btnRefreshPorts.addActionListener(e -> refreshPorts());
         
-        btnConnect = new JButton("Conectar");
+        btnConnect = new JButton("CONECTAR");
         btnConnect.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnConnect.setBackground(new Color(46, 204, 113));
         btnConnect.setForeground(Color.WHITE);
         btnConnect.setFocusPainted(false);
         btnConnect.setBorderPainted(false);
-        btnConnect.setPreferredSize(new Dimension(100, 30));
+        btnConnect.setPreferredSize(new Dimension(120, 30));
         btnConnect.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnConnect.addActionListener(e -> toggleConnection());
         
@@ -138,7 +139,7 @@ public class EnrollPanel extends JPanel {
         portPanel.add(btnRefreshPorts);
         portPanel.add(btnConnect);
         
-        lblConnectionStatus = new JLabel("⚫ Desconectado");
+        lblConnectionStatus = new JLabel("DESCONECTADO");
         lblConnectionStatus.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblConnectionStatus.setForeground(new Color(231, 76, 60));
         
@@ -158,7 +159,7 @@ public class EnrollPanel extends JPanel {
         cmbUsers.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         cmbUsers.setAlignmentX(LEFT_ALIGNMENT);
         
-        JButton btnReloadUsers = new JButton("🔄 Recargar Usuarios");
+        JButton btnReloadUsers = new JButton("Recargar Usuarios");
         btnReloadUsers.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         btnReloadUsers.setAlignmentX(LEFT_ALIGNMENT);
         btnReloadUsers.addActionListener(e -> loadUsers());
@@ -193,7 +194,7 @@ public class EnrollPanel extends JPanel {
         idSection.add(lblIdHelp);
         
         // Botón de iniciar enrolamiento
-        btnStartEnroll = new JButton("▶ Iniciar Enrolamiento");
+        btnStartEnroll = new JButton("INICIAR ENROLAMIENTO");
         btnStartEnroll.setFont(new Font("Segoe UI", Font.BOLD, 16));
         btnStartEnroll.setBackground(new Color(41, 128, 185));
         btnStartEnroll.setForeground(Color.WHITE);
@@ -289,28 +290,26 @@ public class EnrollPanel extends JPanel {
         if (ports.isEmpty()) {
             cmbPorts.addItem("Sin puertos disponibles");
             btnConnect.setEnabled(false);
-            addLog("⚠️ No se encontraron puertos COM disponibles");
+            addLog("No se encontraron puertos COM disponibles");
         } else {
             for (String port : ports) {
                 cmbPorts.addItem(port);
             }
             btnConnect.setEnabled(true);
-            addLog("✓ Puertos COM actualizados: " + ports.size() + " encontrados");
+            addLog("Puertos COM actualizados: " + ports.size() + " encontrados");
         }
     }
     
     private void toggleConnection() {
         if (arduinoService.isConnected()) {
-            // Desconectar
             arduinoService.disconnect();
             updateConnectionStatus(false);
-            addLog("✓ Desconectado de Arduino");
+            addLog("Desconectado de Arduino");
         } else {
-            // Conectar
             String selectedPort = (String) cmbPorts.getSelectedItem();
             if (selectedPort == null || selectedPort.equals("Sin puertos disponibles")) {
                 JOptionPane.showMessageDialog(this,
-                    "Por favor seleccione un puerto COM válido",
+                    "Por favor seleccione un puerto COM valido",
                     "Error",
                     JOptionPane.ERROR_MESSAGE);
                 return;
@@ -333,26 +332,26 @@ public class EnrollPanel extends JPanel {
                         updateConnectionStatus(connected);
                         
                         if (connected) {
-                            addLog("✓ Conectado exitosamente a " + selectedPort);
-                            addLog("✓ Arduino responde correctamente");
+                            addLog("Conectado exitosamente a " + selectedPort);
+                            addLog("Arduino responde correctamente");
                         } else {
-                            addLog("✗ Error al conectar con Arduino");
+                            addLog("Error al conectar con Arduino");
                             JOptionPane.showMessageDialog(EnrollPanel.this,
                                 "No se pudo conectar con Arduino.\nVerifique:\n" +
-                                "1. Arduino está conectado al puerto correcto\n" +
-                                "2. El firmware está cargado\n" +
-                                "3. No hay otra aplicación usando el puerto",
-                                "Error de Conexión",
+                                "1. Arduino esta conectado al puerto correcto\n" +
+                                "2. El firmware esta cargado\n" +
+                                "3. No hay otra aplicacion usando el puerto",
+                                "Error de Conexion",
                                 JOptionPane.ERROR_MESSAGE);
                         }
                     } catch (Exception e) {
                         logger.error("Error al conectar", e);
                         updateConnectionStatus(false);
-                        addLog("✗ Error: " + e.getMessage());
+                        addLog("Error: " + e.getMessage());
                     }
                     
                     btnConnect.setEnabled(true);
-                    btnConnect.setText(arduinoService.isConnected() ? "Desconectar" : "Conectar");
+                    btnConnect.setText(arduinoService.isConnected() ? "DESCONECTAR" : "CONECTAR");
                 }
             };
             
@@ -362,17 +361,17 @@ public class EnrollPanel extends JPanel {
     
     private void updateConnectionStatus(boolean connected) {
         if (connected) {
-            lblConnectionStatus.setText("🟢 Conectado - " + arduinoService.getCurrentPort());
+            lblConnectionStatus.setText("CONECTADO - " + arduinoService.getCurrentPort());
             lblConnectionStatus.setForeground(new Color(46, 204, 113));
-            btnConnect.setText("Desconectar");
+            btnConnect.setText("DESCONECTAR");
             btnConnect.setBackground(new Color(231, 76, 60));
             btnStartEnroll.setEnabled(true);
             cmbPorts.setEnabled(false);
             btnRefreshPorts.setEnabled(false);
         } else {
-            lblConnectionStatus.setText("⚫ Desconectado");
+            lblConnectionStatus.setText("DESCONECTADO");
             lblConnectionStatus.setForeground(new Color(231, 76, 60));
-            btnConnect.setText("Conectar");
+            btnConnect.setText("CONECTAR");
             btnConnect.setBackground(new Color(46, 204, 113));
             btnStartEnroll.setEnabled(false);
             cmbPorts.setEnabled(true);
@@ -403,11 +402,11 @@ public class EnrollPanel extends JPanel {
                 count++;
             }
             
-            addLog("✓ Cargados " + count + " usuarios");
+            addLog("Cargados " + count + " usuarios");
             
         } catch (Exception e) {
             logger.error("Error al cargar usuarios", e);
-            addLog("✗ Error al cargar usuarios: " + e.getMessage());
+            addLog("Error al cargar usuarios: " + e.getMessage());
         }
     }
     
@@ -420,7 +419,6 @@ public class EnrollPanel extends JPanel {
             return;
         }
         
-        // Validar selección de usuario
         UserItem selectedUser = (UserItem) cmbUsers.getSelectedItem();
         if (selectedUser == null) {
             JOptionPane.showMessageDialog(this,
@@ -430,7 +428,6 @@ public class EnrollPanel extends JPanel {
             return;
         }
         
-        // Validar ID de huella
         String fingerprintIdStr = txtFingerprintId.getText().trim();
         if (fingerprintIdStr.isEmpty()) {
             JOptionPane.showMessageDialog(this,
@@ -448,15 +445,14 @@ public class EnrollPanel extends JPanel {
             }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this,
-                "El ID de huella debe ser un número entre 1 y 255",
+                "El ID de huella debe ser un numero entre 1 y 255",
                 "Error",
                 JOptionPane.ERROR_MESSAGE);
             return;
         }
         
-        // Confirmar
         int confirm = JOptionPane.showConfirmDialog(this,
-            "¿Iniciar enrolamiento para?\n\n" +
+            "Iniciar enrolamiento para?\n\n" +
             "Usuario: " + selectedUser.toString() + "\n" +
             "ID Huella: " + fingerprintId,
             "Confirmar Enrolamiento",
@@ -467,7 +463,6 @@ public class EnrollPanel extends JPanel {
             return;
         }
         
-        // Iniciar proceso
         enrolling = true;
         btnStartEnroll.setEnabled(false);
         btnConnect.setEnabled(false);
@@ -486,10 +481,9 @@ public class EnrollPanel extends JPanel {
             @Override
             public void onProgress(String message) {
                 SwingUtilities.invokeLater(() -> {
-                    addLog("▶ " + message);
+                    addLog("> " + message);
                     lblCurrentStep.setText(message);
                     
-                    // Actualizar progreso basado en el mensaje
                     if (message.contains("Coloque el dedo")) {
                         progressBar.setValue(25);
                     } else if (message.contains("Retire el dedo")) {
@@ -505,10 +499,9 @@ public class EnrollPanel extends JPanel {
                 SwingUtilities.invokeLater(() -> {
                     progressBar.setIndeterminate(false);
                     progressBar.setValue(100);
-                    lblCurrentStep.setText("✓ Enrolamiento completado");
-                    addLog("\n✓✓✓ ENROLAMIENTO EXITOSO ✓✓✓");
+                    lblCurrentStep.setText("Enrolamiento completado");
+                    addLog("\n*** ENROLAMIENTO EXITOSO ***");
                     
-                    // Actualizar en base de datos
                     updateUserFingerprint(selectedUser.getId(), fingerprintId);
                     
                     enrolling = false;
@@ -519,10 +512,9 @@ public class EnrollPanel extends JPanel {
                     
                     JOptionPane.showMessageDialog(EnrollPanel.this,
                         "Huella registrada exitosamente para:\n" + selectedUser.toString(),
-                        "Éxito",
+                        "Exito",
                         JOptionPane.INFORMATION_MESSAGE);
                     
-                    // Recargar usuarios
                     loadUsers();
                 });
             }
@@ -532,8 +524,8 @@ public class EnrollPanel extends JPanel {
                 SwingUtilities.invokeLater(() -> {
                     progressBar.setIndeterminate(false);
                     progressBar.setValue(0);
-                    lblCurrentStep.setText("✗ Error en el proceso");
-                    addLog("\n✗✗✗ ERROR: " + error + " ✗✗✗");
+                    lblCurrentStep.setText("Error en el proceso");
+                    addLog("\n*** ERROR: " + error + " ***");
                     
                     enrolling = false;
                     btnStartEnroll.setEnabled(true);
@@ -561,13 +553,13 @@ public class EnrollPanel extends JPanel {
             int updated = pstmt.executeUpdate();
             
             if (updated > 0) {
-                addLog("✓ Usuario actualizado en base de datos");
+                addLog("Usuario actualizado en base de datos");
                 logger.info("Fingerprint ID {} asignado al usuario {}", fingerprintId, userId);
             }
             
         } catch (Exception e) {
             logger.error("Error al actualizar usuario", e);
-            addLog("✗ Error al actualizar base de datos: " + e.getMessage());
+            addLog("Error al actualizar base de datos: " + e.getMessage());
         }
     }
     
@@ -578,7 +570,6 @@ public class EnrollPanel extends JPanel {
         });
     }
     
-    // Clase interna para items del combo de usuarios
     private static class UserItem {
         private final int id;
         private final String dni;

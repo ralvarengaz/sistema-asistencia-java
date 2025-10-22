@@ -262,7 +262,7 @@ public class UsersPanel extends JPanel {
         lblTableTitle.setForeground(new Color(44, 62, 80));
         
         // Tabla
-        String[] columns = {"ID", "DNI", "Apellidos", "Nombres", "Email", "Departamento", 
+        String[] columns = {"ID", "C.I.N.:", "Apellidos", "Nombres", "Email", "Departamento", 
                            "Telefono", "ID Huella", "Estado"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

@@ -138,18 +138,9 @@ public class LoginFrame extends JFrame {
         gbc.insets = new Insets(15, 5, 5, 5);
         formPanel.add(buttonPanel, gbc);
         
-        // Panel inferior - Info
-        JPanel footerPanel = new JPanel();
-        footerPanel.setBackground(Color.WHITE);
-        JLabel lblInfo = new JLabel("Usuario por defecto: admin / admin123");
-        lblInfo.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblInfo.setForeground(new Color(150, 150, 150));
-        footerPanel.add(lblInfo);
-        
         // Agregar todo al panel principal
         mainPanel.add(headerPanel, BorderLayout.NORTH);
         mainPanel.add(formPanel, BorderLayout.CENTER);
-        mainPanel.add(footerPanel, BorderLayout.SOUTH);
         
         add(mainPanel);
         
@@ -167,7 +158,7 @@ public class LoginFrame extends JFrame {
     private void setupFrame() {
         setTitle("Login - Sistema de Asistencia Biométrico");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(450, 550);
+        setSize(450, 480);
         setLocationRelativeTo(null);
         setResizable(false);
     }
@@ -257,9 +248,6 @@ public class LoginFrame extends JFrame {
                 if (rs.next()) {
                     String passwordHash = rs.getString("password_hash");
                     
-                    logger.info("Password ingresada: {}", password);
-                    logger.info("Hash almacenado: {}", passwordHash);
-                    
                     // Primero intentar comparación directa (sin hash)
                     if (password.equals(passwordHash)) {
                         logger.info("Autenticación directa exitosa");
@@ -274,14 +262,10 @@ public class LoginFrame extends JFrame {
                                 logger.info("Autenticación BCrypt exitosa");
                                 updateLastAccess(username);
                                 return true;
-                            } else {
-                                logger.warn("BCrypt verificación falló");
                             }
                         } catch (Exception e) {
                             logger.error("Error en BCrypt.checkpw", e);
                         }
-                    } else {
-                        logger.warn("Hash no es BCrypt válido, solo comparación directa disponible");
                     }
                 } else {
                     logger.warn("No se encontró usuario: {}", username);

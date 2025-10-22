@@ -12,9 +12,10 @@ import java.sql.ResultSet;
 
 /**
  * Panel de Dashboard - Pantalla principal con estadísticas
+ * Versión mejorada con UI/UX optimizada
  * 
  * @author Sistema Biométrico
- * @version 1.0
+ * @version 2.0
  */
 public class DashboardPanel extends JPanel {
     
@@ -61,19 +62,19 @@ public class DashboardPanel extends JPanel {
         statsPanel.setOpaque(false);
         
         // Card 1: Total Usuarios
-        JPanel card1 = createStatCard("👥", "Total Usuarios", "0", new Color(52, 152, 219));
+        JPanel card1 = createStatCard("TOTAL USUARIOS", "0", new Color(52, 152, 219));
         lblTotalUsuarios = findValueLabel(card1);
         
         // Card 2: Asistencias Hoy
-        JPanel card2 = createStatCard("✅", "Asistencias Hoy", "0", new Color(46, 204, 113));
+        JPanel card2 = createStatCard("ASISTENCIAS HOY", "0", new Color(46, 204, 113));
         lblAsistenciasHoy = findValueLabel(card2);
         
         // Card 3: Usuarios con Huella
-        JPanel card3 = createStatCard("👆", "Huellas Registradas", "0", new Color(155, 89, 182));
+        JPanel card3 = createStatCard("HUELLAS REGISTRADAS", "0", new Color(155, 89, 182));
         lblUsuariosConHuella = findValueLabel(card3);
         
         // Card 4: Última Asistencia
-        JPanel card4 = createStatCard("🕐", "Última Asistencia", "Sin registros", new Color(230, 126, 34));
+        JPanel card4 = createStatCard("ULTIMA ASISTENCIA", "Sin registros", new Color(230, 126, 34));
         lblUltimaAsistencia = findValueLabel(card4);
         lblUltimaAsistencia.setFont(new Font("Segoe UI", Font.BOLD, 14));
         
@@ -87,7 +88,7 @@ public class DashboardPanel extends JPanel {
         infoPanel.setOpaque(false);
         infoPanel.setBorder(BorderFactory.createTitledBorder(
             BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true),
-            "Información del Sistema",
+            "Informacion del Sistema",
             0, 0,
             new Font("Segoe UI", Font.BOLD, 14),
             new Color(44, 62, 80)
@@ -99,19 +100,22 @@ public class DashboardPanel extends JPanel {
         txtInfo.setBackground(Color.WHITE);
         txtInfo.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         txtInfo.setText(
-            "📌 Bienvenido al Sistema de Control de Asistencia Biométrico\n\n" +
+            "BIENVENIDO AL SISTEMA DE CONTROL DE ASISTENCIA BIOMETRICO\n\n" +
             "Este sistema permite:\n" +
-            "  • Registrar asistencias mediante sensor de huella digital\n" +
-            "  • Gestionar usuarios y sus huellas dactilares\n" +
-            "  • Generar reportes de asistencias\n" +
-            "  • Visualizar estadísticas en tiempo real\n\n" +
-            "🔹 Estado de Conexión:\n" +
-            "  Base de Datos: ✅ Conectado\n" +
-            "  Arduino: ⚠️ No conectado (disponible en panel de Enrolamiento)\n\n" +
-            "Para comenzar:\n" +
+            "  * Registrar asistencias mediante sensor de huella digital\n" +
+            "  * Gestionar usuarios y sus huellas dactilares\n" +
+            "  * Generar reportes de asistencias\n" +
+            "  * Visualizar estadisticas en tiempo real\n\n" +
+            "ESTADO DE CONEXION:\n" +
+            "  Base de Datos: CONECTADO\n" +
+            "  Arduino: No conectado (disponible en panel de Enrolamiento)\n\n" +
+            "PARA COMENZAR:\n" +
             "1. Registre huellas en el panel 'Enrolar Huella'\n" +
-            "2. Los usuarios podrán marcar asistencia en 'Marcar Asistencia'\n" +
-            "3. Consulte reportes en el panel 'Reportes'"
+            "2. Los usuarios podran marcar asistencia en 'Marcar Asistencia'\n" +
+            "3. Consulte reportes en el panel 'Reportes'\n\n" +
+            "SOPORTE TECNICO:\n" +
+            "  Para asistencia tecnica, contacte al administrador del sistema.\n" +
+            "  Documentacion completa disponible en el manual de usuario."
         );
         
         JScrollPane scrollPane = new JScrollPane(txtInfo);
@@ -119,14 +123,14 @@ public class DashboardPanel extends JPanel {
         infoPanel.add(scrollPane, BorderLayout.CENTER);
         
         // Botón de refrescar
-        JButton btnRefresh = new JButton("🔄 Actualizar Estadísticas");
+        JButton btnRefresh = new JButton("ACTUALIZAR ESTADISTICAS");
         btnRefresh.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnRefresh.setBackground(new Color(52, 152, 219));
         btnRefresh.setForeground(Color.WHITE);
         btnRefresh.setFocusPainted(false);
         btnRefresh.setBorderPainted(false);
         btnRefresh.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnRefresh.setPreferredSize(new Dimension(200, 40));
+        btnRefresh.setPreferredSize(new Dimension(220, 40));
         btnRefresh.addActionListener(e -> loadStatistics());
         
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -145,7 +149,6 @@ public class DashboardPanel extends JPanel {
     }
     
     private JLabel findValueLabel(JPanel card) {
-        // Buscar el JLabel con el valor en el panel de texto
         Component[] components = card.getComponents();
         for (Component comp : components) {
             if (comp instanceof JPanel) {
@@ -154,7 +157,6 @@ public class DashboardPanel extends JPanel {
                 for (Component textComp : textComponents) {
                     if (textComp instanceof JLabel) {
                         JLabel label = (JLabel) textComp;
-                        // El label del valor tiene fuente grande (32)
                         if (label.getFont().getSize() == 32) {
                             return label;
                         }
@@ -162,10 +164,10 @@ public class DashboardPanel extends JPanel {
                 }
             }
         }
-        return new JLabel("0"); // Fallback
+        return new JLabel("0");
     }
     
-    private JPanel createStatCard(String icon, String title, String value, Color accentColor) {
+    private JPanel createStatCard(String title, String value, Color accentColor) {
         JPanel card = new JPanel(new BorderLayout(15, 15));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
@@ -173,15 +175,12 @@ public class DashboardPanel extends JPanel {
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         
-        // Icono
-        JLabel lblIcon = new JLabel(icon);
-        lblIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 48));
-        lblIcon.setOpaque(true);
-        lblIcon.setBackground(accentColor);
-        lblIcon.setForeground(Color.WHITE);
-        lblIcon.setHorizontalAlignment(SwingConstants.CENTER);
-        lblIcon.setPreferredSize(new Dimension(80, 80));
-        lblIcon.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // Área de color de acento
+        JLabel lblAccent = new JLabel(" ");
+        lblAccent.setOpaque(true);
+        lblAccent.setBackground(accentColor);
+        lblAccent.setPreferredSize(new Dimension(80, 80));
+        lblAccent.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
         // Panel de texto
         JPanel textPanel = new JPanel();
@@ -200,7 +199,7 @@ public class DashboardPanel extends JPanel {
         textPanel.add(Box.createVerticalStrut(5));
         textPanel.add(lblValue);
         
-        card.add(lblIcon, BorderLayout.WEST);
+        card.add(lblAccent, BorderLayout.WEST);
         card.add(textPanel, BorderLayout.CENTER);
         
         return card;
@@ -258,7 +257,7 @@ public class DashboardPanel extends JPanel {
                     }
                     
                 } catch (Exception e) {
-                    logger.error("Error al cargar estadísticas", e);
+                    logger.error("Error al cargar estadisticas", e);
                 }
                 return null;
             }
@@ -269,7 +268,7 @@ public class DashboardPanel extends JPanel {
                 lblAsistenciasHoy.setText(String.valueOf(asistenciasHoy));
                 lblUsuariosConHuella.setText(String.valueOf(usuariosConHuella));
                 lblUltimaAsistencia.setText(ultimaAsistencia);
-                logger.info("Estadísticas actualizadas");
+                logger.info("Estadisticas actualizadas");
             }
         };
         

@@ -245,7 +245,7 @@ public class ReportsPanel extends JPanel {
         panel.add(cmbTipoMarcacion, gbc);
         
         gbc.gridx = 4;
-        panel.add(new JLabel("Usuario (DNI/Nombre):"), gbc);
+        panel.add(new JLabel("Usuario (C.I.N.:/Nombre):"), gbc);
         
         gbc.gridx = 5;
         txtUsuario = new JTextField(15);
@@ -270,7 +270,7 @@ public class ReportsPanel extends JPanel {
         lblTitle.setForeground(new Color(44, 62, 80));
         
         // Tabla
-        String[] columns = {"#", "Fecha", "Hora", "Usuario", "DNI", "Departamento", 
+        String[] columns = {"#", "Fecha", "Hora", "Usuario", "C.I.N.:", "Departamento", 
                            "Tipo", "Confianza", "Metodo"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

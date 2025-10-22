@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter;
  * Ventana principal del sistema con menú lateral
  * 
  * @author Sistema Biométrico
- * @version 1.0
+ * @version 1.1 - Actualizado con módulo de Configuración
  */
 public class MainFrame extends JFrame {
     
@@ -97,8 +97,8 @@ public class MainFrame extends JFrame {
         userPanel.setOpaque(false);
         userPanel.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 1, true));
         
-        JLabel lblUserIcon = new JLabel("👤");
-        lblUserIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 16));
+        JLabel lblUserIcon = new JLabel("Usuario:");
+        lblUserIcon.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         
         lblUsername = new JLabel(currentUser);
         lblUsername.setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -137,8 +137,9 @@ public class MainFrame extends JFrame {
         headerPanel.setMaximumSize(new Dimension(250, 120));
         headerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
-        JLabel lblLogo = new JLabel("🔐", SwingConstants.CENTER);
-        lblLogo.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 48));
+        JLabel lblLogo = new JLabel("Sistema", SwingConstants.CENTER);
+        lblLogo.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        lblLogo.setForeground(Color.WHITE);
         lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
         
         JLabel lblAppName = new JLabel("Control Biométrico", SwingConstants.CENTER);
@@ -154,12 +155,12 @@ public class MainFrame extends JFrame {
         sidebarPanel.add(Box.createVerticalStrut(20));
         
         // Botones del menú
-        addMenuButton("🏠  Dashboard", true, this::showDashboard);
-        addMenuButton("✅  Marcar Asistencia", false, this::showAttendance);
-        addMenuButton("👆  Enrolar Huella", false, this::showEnroll);
-        addMenuButton("👥  Usuarios", false, this::showUsers);
-        addMenuButton("📊  Reportes", false, this::showReports);
-        addMenuButton("⚙️  Configuración", false, this::showSettings);
+        addMenuButton("Dashboard", true, this::showDashboard);
+        addMenuButton("Marcar Asistencia", false, this::showAttendance);
+        addMenuButton("Enrolar Huella", false, this::showEnroll);
+        addMenuButton("Usuarios", false, this::showUsers);
+        addMenuButton("Reportes", false, this::showReports);
+        addMenuButton("Configuración", false, this::showSettings);
         
         // Espaciador para empujar contenido hacia arriba
         sidebarPanel.add(Box.createVerticalGlue());
@@ -171,7 +172,7 @@ public class MainFrame extends JFrame {
         footerPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 20, 20));
         footerPanel.setMaximumSize(new Dimension(250, 60));
         
-        JLabel lblVersion = new JLabel("Versión 1.0.0");
+        JLabel lblVersion = new JLabel("Versión 1.1.0");
         lblVersion.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         lblVersion.setForeground(new Color(150, 150, 150));
         lblVersion.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -267,8 +268,6 @@ public class MainFrame extends JFrame {
         }
     }
     
-    // En MainFrame.java, reemplaza el método showReports() por este:
-
     private void showReports() {
         logger.info("Mostrando Panel de Reportes");
         try {
@@ -292,9 +291,23 @@ public class MainFrame extends JFrame {
     
     private void showSettings() {
         logger.info("Mostrando Panel de Configuración");
-        JPanel panel = createPlaceholderPanel("Configuración", 
-            "Panel de configuración en desarrollo...");
-        switchPanel(panel);
+        try {
+            ConfigurationPanel configPanel = new ConfigurationPanel();
+            switchPanel(configPanel);
+            logger.info("ConfigurationPanel cargado correctamente");
+        } catch (Exception e) {
+            logger.error("Error al cargar ConfigurationPanel", e);
+            e.printStackTrace();
+            
+            JOptionPane.showMessageDialog(this,
+                "Error al cargar el módulo de configuración:\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+            
+            JPanel panel = createPlaceholderPanel("Configuración", 
+                "Error al cargar el módulo.");
+            switchPanel(panel);
+        }
     }
     
     private JPanel createPlaceholderPanel(String title, String message) {
