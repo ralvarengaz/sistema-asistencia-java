@@ -182,7 +182,7 @@ public class EnrollPanel extends JPanel {
         txtFingerprintId.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         txtFingerprintId.setAlignmentX(LEFT_ALIGNMENT);
         
-        JLabel lblIdHelp = new JLabel("<html><small>Sugerencia: Use el DNI del usuario</small></html>");
+        JLabel lblIdHelp = new JLabel("<html><small>Sugerencia: Use la C.I.N.: del usuario</small></html>");
         lblIdHelp.setFont(new Font("Segoe UI", Font.ITALIC, 11));
         lblIdHelp.setForeground(Color.GRAY);
         lblIdHelp.setAlignmentX(LEFT_ALIGNMENT);

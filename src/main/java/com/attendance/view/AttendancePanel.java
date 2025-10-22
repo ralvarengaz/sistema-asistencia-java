@@ -19,6 +19,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.Timer;
 import java.util.TimerTask;
 
+/**
+ * Panel de Marcación de Asistencia - VERSIÓN FINAL CORREGIDA
+ * 
+ * @author Sistema Biométrico
+ * @version 3.0 - Botones visibles + Avatar funcional
+ */
 public class AttendancePanel extends JPanel {
     
     private static final Logger logger = LoggerFactory.getLogger(AttendancePanel.class);
@@ -37,6 +43,7 @@ public class AttendancePanel extends JPanel {
     private JLabel lblStatusMessage;
     
     private JPanel userInfoPanel;
+    private JLabel lblUserPhoto;
     private JLabel lblUserName;
     private JLabel lblUserDNI;
     private JLabel lblUserDepartment;
@@ -57,12 +64,12 @@ public class AttendancePanel extends JPanel {
     }
     
     private void initComponents() {
-        setLayout(new BorderLayout(20, 20));
+        setLayout(new BorderLayout(15, 15));
         setBackground(new Color(250, 250, 250));
-        setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
+        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         
         JPanel headerPanel = createHeaderPanel();
-        JPanel mainPanel = new JPanel(new GridLayout(1, 3, 20, 0));
+        JPanel mainPanel = new JPanel(new GridLayout(1, 3, 15, 0));
         mainPanel.setOpaque(false);
         
         JPanel leftPanel = createLeftPanel();
@@ -85,11 +92,11 @@ public class AttendancePanel extends JPanel {
         panel.setOpaque(false);
         
         JLabel lblTitle = new JLabel("Marcar Asistencia");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
         lblTitle.setForeground(new Color(44, 62, 80));
         
         JLabel lblSubtitle = new JLabel("Sistema de registro biometrico de entrada y salida");
-        lblSubtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblSubtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblSubtitle.setForeground(new Color(127, 140, 141));
         
         JPanel titlePanel = new JPanel();
@@ -105,116 +112,116 @@ public class AttendancePanel extends JPanel {
     }
     
     private JPanel createLeftPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
-            BorderFactory.createEmptyBorder(20, 20, 20, 20)
+            BorderFactory.createEmptyBorder(15, 15, 15, 15)
         ));
         
-        JLabel lblSectionTitle = new JLabel("Conexion Arduino");
-        lblSectionTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblSectionTitle.setForeground(new Color(44, 62, 80));
-        lblSectionTitle.setAlignmentX(LEFT_ALIGNMENT);
-        
-        panel.add(lblSectionTitle);
-        panel.add(Box.createVerticalStrut(15));
+        // Panel superior: Conexión Arduino
+        JPanel connectionPanel = new JPanel();
+        connectionPanel.setLayout(new BoxLayout(connectionPanel, BoxLayout.Y_AXIS));
+        connectionPanel.setOpaque(false);
+        connectionPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            "Conexion Arduino",
+            0, 0,
+            new Font("Segoe UI", Font.BOLD, 13)
+        ));
         
         JLabel lblPort = new JLabel("Puerto COM:");
-        lblPort.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblPort.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblPort.setAlignmentX(LEFT_ALIGNMENT);
         
-        JPanel portPanel = new JPanel();
-        portPanel.setLayout(new BoxLayout(portPanel, BoxLayout.X_AXIS));
+        JPanel portPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
         portPanel.setOpaque(false);
         portPanel.setAlignmentX(LEFT_ALIGNMENT);
-        portPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
         
         cmbPorts = new JComboBox<>();
-        cmbPorts.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        cmbPorts.setMaximumSize(new Dimension(150, 30));
+        cmbPorts.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cmbPorts.setPreferredSize(new Dimension(120, 28));
         
-        btnRefreshPorts = new JButton("Actualizar");
-        btnRefreshPorts.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        btnRefreshPorts.setPreferredSize(new Dimension(90, 30));
-        btnRefreshPorts.setMaximumSize(new Dimension(90, 30));
+        btnRefreshPorts = new JButton("↻");
+        btnRefreshPorts.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnRefreshPorts.setPreferredSize(new Dimension(35, 28));
+        btnRefreshPorts.setToolTipText("Actualizar puertos");
         btnRefreshPorts.addActionListener(e -> refreshPorts());
         
         portPanel.add(cmbPorts);
-        portPanel.add(Box.createHorizontalStrut(5));
         portPanel.add(btnRefreshPorts);
-        portPanel.add(Box.createHorizontalGlue());
-        
-        panel.add(lblPort);
-        panel.add(Box.createVerticalStrut(5));
-        panel.add(portPanel);
-        panel.add(Box.createVerticalStrut(15));
         
         btnConnect = new JButton("CONECTAR");
-        btnConnect.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnConnect.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnConnect.setBackground(new Color(46, 204, 113));
         btnConnect.setForeground(Color.WHITE);
         btnConnect.setFocusPainted(false);
-        btnConnect.setBorderPainted(false);
-        btnConnect.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        btnConnect.setPreferredSize(new Dimension(200, 35));
+        btnConnect.setMaximumSize(new Dimension(250, 35));
         btnConnect.setAlignmentX(LEFT_ALIGNMENT);
         btnConnect.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnConnect.addActionListener(e -> toggleConnection());
         
-        panel.add(btnConnect);
-        panel.add(Box.createVerticalStrut(15));
-        
         lblConnectionStatus = new JLabel("DESCONECTADO");
-        lblConnectionStatus.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblConnectionStatus.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblConnectionStatus.setForeground(new Color(231, 76, 60));
         lblConnectionStatus.setAlignmentX(LEFT_ALIGNMENT);
         
-        panel.add(lblConnectionStatus);
-        panel.add(Box.createVerticalStrut(30));
+        connectionPanel.add(lblPort);
+        connectionPanel.add(Box.createVerticalStrut(5));
+        connectionPanel.add(portPanel);
+        connectionPanel.add(Box.createVerticalStrut(10));
+        connectionPanel.add(btnConnect);
+        connectionPanel.add(Box.createVerticalStrut(8));
+        connectionPanel.add(lblConnectionStatus);
         
-        JSeparator separator = new JSeparator();
-        separator.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        panel.add(separator);
-        panel.add(Box.createVerticalStrut(20));
+        // Panel inferior: Botones de Marcación
+        JPanel markPanel = new JPanel();
+        markPanel.setLayout(new BoxLayout(markPanel, BoxLayout.Y_AXIS));
+        markPanel.setOpaque(false);
+        markPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            "Tipo de Marcacion",
+            0, 0,
+            new Font("Segoe UI", Font.BOLD, 13)
+        ));
         
-        JLabel lblMarkType = new JLabel("Tipo de Marcacion");
-        lblMarkType.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblMarkType.setForeground(new Color(44, 62, 80));
-        lblMarkType.setAlignmentX(LEFT_ALIGNMENT);
-        
-        panel.add(lblMarkType);
-        panel.add(Box.createVerticalStrut(15));
-        
-        btnMarkEntry = new JButton("MARCAR ENTRADA");
-        btnMarkEntry.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        // BOTÓN ENTRADA
+        btnMarkEntry = new JButton("ENTRADA");
+        btnMarkEntry.setFont(new Font("Segoe UI", Font.BOLD, 16));
         btnMarkEntry.setBackground(new Color(52, 152, 219));
         btnMarkEntry.setForeground(Color.WHITE);
         btnMarkEntry.setFocusPainted(false);
         btnMarkEntry.setBorderPainted(false);
-        btnMarkEntry.setMaximumSize(new Dimension(Integer.MAX_VALUE, 55));
+        btnMarkEntry.setPreferredSize(new Dimension(200, 55));
+        btnMarkEntry.setMaximumSize(new Dimension(250, 55));
         btnMarkEntry.setAlignmentX(LEFT_ALIGNMENT);
         btnMarkEntry.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnMarkEntry.setEnabled(false);
         btnMarkEntry.addActionListener(e -> startAttendanceMark("ENTRADA"));
         
-        panel.add(btnMarkEntry);
-        panel.add(Box.createVerticalStrut(15));
-        
-        btnMarkExit = new JButton("MARCAR SALIDA");
-        btnMarkExit.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        // BOTÓN SALIDA
+        btnMarkExit = new JButton("SALIDA");
+        btnMarkExit.setFont(new Font("Segoe UI", Font.BOLD, 16));
         btnMarkExit.setBackground(new Color(230, 126, 34));
         btnMarkExit.setForeground(Color.WHITE);
         btnMarkExit.setFocusPainted(false);
         btnMarkExit.setBorderPainted(false);
-        btnMarkExit.setMaximumSize(new Dimension(Integer.MAX_VALUE, 55));
+        btnMarkExit.setPreferredSize(new Dimension(200, 55));
+        btnMarkExit.setMaximumSize(new Dimension(250, 55));
         btnMarkExit.setAlignmentX(LEFT_ALIGNMENT);
         btnMarkExit.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnMarkExit.setEnabled(false);
         btnMarkExit.addActionListener(e -> startAttendanceMark("SALIDA"));
         
-        panel.add(btnMarkExit);
-        panel.add(Box.createVerticalGlue());
+        markPanel.add(btnMarkEntry);
+        markPanel.add(Box.createVerticalStrut(12));
+        markPanel.add(btnMarkExit);
+        markPanel.add(Box.createVerticalStrut(8));
+        
+        // Layout del panel izquierdo
+        panel.add(connectionPanel, BorderLayout.NORTH);
+        panel.add(markPanel, BorderLayout.CENTER);
         
         return panel;
     }
@@ -224,7 +231,7 @@ public class AttendancePanel extends JPanel {
         panel.setBackground(new Color(41, 128, 185));
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
-            BorderFactory.createEmptyBorder(30, 30, 30, 30)
+            BorderFactory.createEmptyBorder(25, 25, 25, 25)
         ));
         
         JPanel topPanel = new JPanel();
@@ -232,18 +239,18 @@ public class AttendancePanel extends JPanel {
         topPanel.setOpaque(false);
         
         lblCurrentTime = new JLabel("--:--:--");
-        lblCurrentTime.setFont(new Font("Segoe UI", Font.BOLD, 48));
+        lblCurrentTime.setFont(new Font("Segoe UI", Font.BOLD, 44));
         lblCurrentTime.setForeground(Color.WHITE);
         lblCurrentTime.setAlignmentX(CENTER_ALIGNMENT);
         
         JLabel lblDate = new JLabel(LocalDateTime.now().format(
             DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy")));
-        lblDate.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        lblDate.setFont(new Font("Segoe UI", Font.PLAIN, 15));
         lblDate.setForeground(new Color(236, 240, 241));
         lblDate.setAlignmentX(CENTER_ALIGNMENT);
         
         topPanel.add(lblCurrentTime);
-        topPanel.add(Box.createVerticalStrut(10));
+        topPanel.add(Box.createVerticalStrut(8));
         topPanel.add(lblDate);
         
         JPanel centerPanel = new JPanel();
@@ -251,21 +258,21 @@ public class AttendancePanel extends JPanel {
         centerPanel.setOpaque(false);
         
         lblStatusMessage = new JLabel("Coloque su dedo en el sensor");
-        lblStatusMessage.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblStatusMessage.setFont(new Font("Segoe UI", Font.BOLD, 20));
         lblStatusMessage.setForeground(Color.WHITE);
         lblStatusMessage.setAlignmentX(CENTER_ALIGNMENT);
         lblStatusMessage.setHorizontalAlignment(SwingConstants.CENTER);
         
         lblInstructions = new JLabel(
             "<html><center>Presione un boton de marcacion y<br>coloque su dedo en el sensor</center></html>");
-        lblInstructions.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblInstructions.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblInstructions.setForeground(new Color(189, 195, 199));
         lblInstructions.setAlignmentX(CENTER_ALIGNMENT);
         lblInstructions.setHorizontalAlignment(SwingConstants.CENTER);
         
         centerPanel.add(Box.createVerticalGlue());
         centerPanel.add(lblStatusMessage);
-        centerPanel.add(Box.createVerticalStrut(15));
+        centerPanel.add(Box.createVerticalStrut(12));
         centerPanel.add(lblInstructions);
         centerPanel.add(Box.createVerticalGlue());
         
@@ -276,69 +283,70 @@ public class AttendancePanel extends JPanel {
     }
     
     private JPanel createRightPanel() {
-        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
-            BorderFactory.createEmptyBorder(20, 20, 20, 20)
+            BorderFactory.createEmptyBorder(15, 15, 15, 15)
         ));
         
         JLabel lblTitle = new JLabel("Ultimo Usuario");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTitle.setForeground(new Color(44, 62, 80));
         
         userInfoPanel = new JPanel();
         userInfoPanel.setLayout(new BoxLayout(userInfoPanel, BoxLayout.Y_AXIS));
         userInfoPanel.setOpaque(false);
         
-        JPanel avatarPanel = new JPanel();
-        avatarPanel.setLayout(new BoxLayout(avatarPanel, BoxLayout.Y_AXIS));
-        avatarPanel.setOpaque(true);
-        avatarPanel.setBackground(new Color(245, 245, 245));
-        avatarPanel.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200), 2, true));
-        avatarPanel.setPreferredSize(new Dimension(120, 120));
-        avatarPanel.setMaximumSize(new Dimension(120, 120));
-        avatarPanel.setAlignmentX(CENTER_ALIGNMENT);
-        
-        JLabel lblAvatarText = new JLabel("USUARIO", SwingConstants.CENTER);
-        lblAvatarText.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblAvatarText.setForeground(new Color(149, 165, 166));
-        lblAvatarText.setAlignmentX(CENTER_ALIGNMENT);
-        
-        avatarPanel.add(Box.createVerticalGlue());
-        avatarPanel.add(lblAvatarText);
-        avatarPanel.add(Box.createVerticalGlue());
+        // IMAGEN DE PERFIL CON INICIALES
+        lblUserPhoto = new JLabel();
+        lblUserPhoto.setPreferredSize(new Dimension(110, 110));
+        lblUserPhoto.setMaximumSize(new Dimension(110, 110));
+        lblUserPhoto.setMinimumSize(new Dimension(110, 110));
+        lblUserPhoto.setHorizontalAlignment(SwingConstants.CENTER);
+        lblUserPhoto.setVerticalAlignment(SwingConstants.CENTER);
+        lblUserPhoto.setOpaque(true);
+        lblUserPhoto.setBackground(new Color(189, 195, 199));
+        lblUserPhoto.setForeground(Color.WHITE);
+        lblUserPhoto.setFont(new Font("Segoe UI", Font.BOLD, 42));
+        lblUserPhoto.setText("?");
+        lblUserPhoto.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200), 3),
+            BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
+        lblUserPhoto.setAlignmentX(CENTER_ALIGNMENT);
         
         lblUserName = new JLabel("Sin registro", SwingConstants.CENTER);
-        lblUserName.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblUserName.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblUserName.setForeground(new Color(44, 62, 80));
         lblUserName.setAlignmentX(CENTER_ALIGNMENT);
         
         lblUserDNI = new JLabel("---", SwingConstants.CENTER);
-        lblUserDNI.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblUserDNI.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblUserDNI.setForeground(new Color(127, 140, 141));
         lblUserDNI.setAlignmentX(CENTER_ALIGNMENT);
         
         lblUserDepartment = new JLabel("---", SwingConstants.CENTER);
-        lblUserDepartment.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblUserDepartment.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblUserDepartment.setForeground(new Color(149, 165, 166));
         lblUserDepartment.setAlignmentX(CENTER_ALIGNMENT);
         
         lblConfidence = new JLabel("Confianza: ---", SwingConstants.CENTER);
-        lblConfidence.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblConfidence.setFont(new Font("Segoe UI", Font.BOLD, 11));
         lblConfidence.setForeground(new Color(52, 152, 219));
         lblConfidence.setAlignmentX(CENTER_ALIGNMENT);
         
-        userInfoPanel.add(Box.createVerticalStrut(20));
-        userInfoPanel.add(avatarPanel);
         userInfoPanel.add(Box.createVerticalStrut(15));
+        userInfoPanel.add(lblUserPhoto);
+        userInfoPanel.add(Box.createVerticalStrut(12));
         userInfoPanel.add(lblUserName);
         userInfoPanel.add(Box.createVerticalStrut(5));
         userInfoPanel.add(lblUserDNI);
-        userInfoPanel.add(Box.createVerticalStrut(5));
+        userInfoPanel.add(Box.createVerticalStrut(4));
         userInfoPanel.add(lblUserDepartment);
-        userInfoPanel.add(Box.createVerticalStrut(10));
+        userInfoPanel.add(Box.createVerticalStrut(8));
         userInfoPanel.add(lblConfidence);
+        userInfoPanel.add(Box.createVerticalGlue());
         
         panel.add(lblTitle, BorderLayout.NORTH);
         panel.add(userInfoPanel, BorderLayout.CENTER);
@@ -351,26 +359,26 @@ public class AttendancePanel extends JPanel {
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
-            BorderFactory.createEmptyBorder(15, 15, 15, 15)
+            BorderFactory.createEmptyBorder(12, 12, 12, 12)
         ));
-        panel.setPreferredSize(new Dimension(0, 250));
+        panel.setPreferredSize(new Dimension(0, 200));
         
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setOpaque(false);
         
         JLabel lblTableTitle = new JLabel("Asistencias de Hoy");
-        lblTableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTableTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblTableTitle.setForeground(new Color(44, 62, 80));
         
         JButton btnRefresh = new JButton("Actualizar");
-        btnRefresh.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnRefresh.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         btnRefresh.setFocusPainted(false);
         btnRefresh.addActionListener(e -> loadTodayAttendances());
         
         titlePanel.add(lblTableTitle, BorderLayout.WEST);
         titlePanel.add(btnRefresh, BorderLayout.EAST);
         
-        String[] columns = {"#", "Hora", "Usuario", "DNI", "Tipo", "Confianza", "Estado"};
+        String[] columns = {"#", "Hora", "Usuario", "C.I.N.:", "Tipo", "Confianza", "Estado"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -379,9 +387,9 @@ public class AttendancePanel extends JPanel {
         };
         
         tableAttendances = new JTable(tableModel);
-        tableAttendances.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        tableAttendances.setRowHeight(25);
-        tableAttendances.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        tableAttendances.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        tableAttendances.setRowHeight(22);
+        tableAttendances.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 11));
         tableAttendances.getTableHeader().setBackground(new Color(52, 152, 219));
         tableAttendances.getTableHeader().setForeground(Color.WHITE);
         
@@ -391,13 +399,13 @@ public class AttendancePanel extends JPanel {
             tableAttendances.getColumnModel().getColumn(i).setCellRenderer(centerRenderer);
         }
         
-        tableAttendances.getColumnModel().getColumn(0).setPreferredWidth(40);
-        tableAttendances.getColumnModel().getColumn(1).setPreferredWidth(80);
-        tableAttendances.getColumnModel().getColumn(2).setPreferredWidth(200);
-        tableAttendances.getColumnModel().getColumn(3).setPreferredWidth(100);
-        tableAttendances.getColumnModel().getColumn(4).setPreferredWidth(80);
-        tableAttendances.getColumnModel().getColumn(5).setPreferredWidth(80);
-        tableAttendances.getColumnModel().getColumn(6).setPreferredWidth(80);
+        tableAttendances.getColumnModel().getColumn(0).setPreferredWidth(35);
+        tableAttendances.getColumnModel().getColumn(1).setPreferredWidth(70);
+        tableAttendances.getColumnModel().getColumn(2).setPreferredWidth(180);
+        tableAttendances.getColumnModel().getColumn(3).setPreferredWidth(90);
+        tableAttendances.getColumnModel().getColumn(4).setPreferredWidth(70);
+        tableAttendances.getColumnModel().getColumn(5).setPreferredWidth(75);
+        tableAttendances.getColumnModel().getColumn(6).setPreferredWidth(70);
         
         JScrollPane scrollPane = new JScrollPane(tableAttendances);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
@@ -637,8 +645,30 @@ public class AttendancePanel extends JPanel {
                     String apellidos = rs.getString("apellidos");
                     String departamento = rs.getString("departamento");
                     
+                    // ACTUALIZAR FOTO CON INICIALES
+                    String iniciales = "";
+                    if (nombres != null && nombres.length() > 0) {
+                        iniciales += nombres.charAt(0);
+                    }
+                    if (apellidos != null && apellidos.length() > 0) {
+                        iniciales += apellidos.charAt(0);
+                    }
+                    
+                    if (iniciales.isEmpty()) {
+                        lblUserPhoto.setText("?");
+                    } else {
+                        lblUserPhoto.setText(iniciales.toUpperCase());
+                    }
+                    
+                    // Color según tipo de marcación
+                    if ("ENTRADA".equals(tipo)) {
+                        lblUserPhoto.setBackground(new Color(52, 152, 219));
+                    } else {
+                        lblUserPhoto.setBackground(new Color(230, 126, 34));
+                    }
+                    
                     lblUserName.setText(nombres + " " + apellidos);
-                    lblUserDNI.setText("DNI: " + dni);
+                    lblUserDNI.setText("C.I.N.:: " + dni);
                     lblUserDepartment.setText(departamento != null ? departamento : "Sin departamento");
                     lblConfidence.setText("Confianza: " + confidence + "/255");
                     
