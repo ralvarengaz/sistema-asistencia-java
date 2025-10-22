@@ -267,11 +267,27 @@ public class MainFrame extends JFrame {
         }
     }
     
+    // En MainFrame.java, reemplaza el método showReports() por este:
+
     private void showReports() {
         logger.info("Mostrando Panel de Reportes");
-        JPanel panel = createPlaceholderPanel("Reportes", 
-            "Panel de reportes en desarrollo...");
-        switchPanel(panel);
+        try {
+            ReportsPanel reportsPanel = new ReportsPanel();
+            switchPanel(reportsPanel);
+            logger.info("ReportsPanel cargado correctamente");
+        } catch (Exception e) {
+            logger.error("Error al cargar ReportsPanel", e);
+            e.printStackTrace();
+            
+            JOptionPane.showMessageDialog(this,
+                "Error al cargar el modulo de reportes:\n" + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+            
+            JPanel panel = createPlaceholderPanel("Reportes", 
+                "Error al cargar el modulo.");
+            switchPanel(panel);
+        }
     }
     
     private void showSettings() {
