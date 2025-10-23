@@ -15,13 +15,20 @@ import java.util.Properties;
  * Configuración de conexión a base de datos PostgreSQL con pooling HikariCP
  * 
  * @author Sistema Biométrico
- * @version 1.0
+ * @version 2.0 - Optimizado
  */
 public class DatabaseConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(DatabaseConfig.class);
     private static HikariDataSource dataSource;
     private static Properties properties;
+    
+    // Valores por defecto
+    private static final String DEFAULT_HOST = "localhost";
+    private static final String DEFAULT_PORT = "5432";
+    private static final String DEFAULT_DB_NAME = "attendance_system";
+    private static final String DEFAULT_USERNAME = "postgres";
+    private static final String DEFAULT_PASSWORD = "MiNuevaPassword123!";
     
     /**
      * Inicializa la configuración de base de datos
@@ -34,11 +41,11 @@ public class DatabaseConfig {
             // Configurar HikariCP
             HikariConfig config = new HikariConfig();
             
-            String host = properties.getProperty("db.host", "localhost");
-            String port = properties.getProperty("db.port", "5432");
-            String dbName = properties.getProperty("db.name", "attendance_system");
-            String username = properties.getProperty("db.username", "app_attendance");
-            String password = properties.getProperty("db.password");
+            String host = properties.getProperty("db.host", DEFAULT_HOST);
+            String port = properties.getProperty("db.port", DEFAULT_PORT);
+            String dbName = properties.getProperty("db.name", DEFAULT_DB_NAME);
+            String username = properties.getProperty("db.username", DEFAULT_USERNAME);
+            String password = properties.getProperty("db.password", DEFAULT_PASSWORD);
             
             String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, dbName);
             config.setJdbcUrl(jdbcUrl);
@@ -61,11 +68,15 @@ public class DatabaseConfig {
             
             dataSource = new HikariDataSource(config);
             
-            logger.info("Pool de conexiones inicializado correctamente");
-            logger.info("Conectado a: {}", jdbcUrl);
+            logger.info("═══════════════════════════════════════");
+            logger.info("  Pool de conexiones inicializado");
+            logger.info("  URL: {}", jdbcUrl);
+            logger.info("  Usuario: {}", username);
+            logger.info("  Pool size: {}", config.getMaximumPoolSize());
+            logger.info("═══════════════════════════════════════");
             
         } catch (Exception e) {
-            logger.error("Error al inicializar configuración de base de datos", e);
+            logger.error("Error crítico al inicializar base de datos", e);
             throw new RuntimeException("No se pudo inicializar la base de datos", e);
         }
     }
@@ -86,7 +97,7 @@ public class DatabaseConfig {
     public static void close() {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
-            logger.info("Pool de conexiones cerrado");
+            logger.info("Pool de conexiones cerrado correctamente");
         }
     }
     
@@ -97,11 +108,13 @@ public class DatabaseConfig {
         try (Connection conn = getConnection()) {
             boolean isValid = conn != null && conn.isValid(5);
             if (isValid) {
-                logger.info("Conexión a base de datos exitosa");
+                logger.info("✓ Conexión a base de datos: OK");
+            } else {
+                logger.error("✗ Conexión a base de datos: FALLO");
             }
             return isValid;
         } catch (SQLException e) {
-            logger.error("Error al probar conexión a base de datos", e);
+            logger.error("✗ Error al probar conexión a base de datos", e);
             return false;
         }
     }
@@ -117,25 +130,45 @@ public class DatabaseConfig {
                 .getResourceAsStream("application.properties")) {
             
             if (input == null) {
-                logger.warn("No se encontró application.properties, usando valores por defecto");
-                // Valores por defecto
-                props.setProperty("db.host", "localhost");
-                props.setProperty("db.port", "5432");
-                props.setProperty("db.name", "attendance_system");
-                props.setProperty("db.username", "app_attendance");
-                props.setProperty("db.password", "SecurePass2025!");
-                props.setProperty("db.pool.maxPoolSize", "10");
-                props.setProperty("db.pool.minIdle", "2");
-                props.setProperty("db.pool.connectionTimeout", "30000");
-                props.setProperty("db.pool.idleTimeout", "600000");
-                props.setProperty("db.pool.maxLifetime", "1800000");
+                logger.warn("⚠ No se encontró application.properties, usando valores por defecto");
+                setDefaultProperties(props);
             } else {
                 props.load(input);
-                logger.info("Propiedades cargadas desde application.properties");
+                logger.info("✓ Propiedades cargadas desde application.properties");
             }
+        } catch (IOException e) {
+            logger.warn("⚠ Error al cargar application.properties, usando valores por defecto", e);
+            setDefaultProperties(props);
         }
         
         return props;
+    }
+    
+    /**
+     * Establece propiedades por defecto
+     */
+    private static void setDefaultProperties(Properties props) {
+        // Base de datos
+        props.setProperty("db.host", DEFAULT_HOST);
+        props.setProperty("db.port", DEFAULT_PORT);
+        props.setProperty("db.name", DEFAULT_DB_NAME);
+        props.setProperty("db.username", DEFAULT_USERNAME);
+        props.setProperty("db.password", DEFAULT_PASSWORD);
+        
+        // Pool
+        props.setProperty("db.pool.maxPoolSize", "10");
+        props.setProperty("db.pool.minIdle", "2");
+        props.setProperty("db.pool.connectionTimeout", "30000");
+        props.setProperty("db.pool.idleTimeout", "600000");
+        props.setProperty("db.pool.maxLifetime", "1800000");
+        
+        // Arduino - BAUDRATE CORRECTO
+        props.setProperty("arduino.baudRate", "57600");
+        props.setProperty("arduino.timeout", "20000");
+        
+        // Sensor
+        props.setProperty("sensor.confidenceThreshold", "50");
+        props.setProperty("sensor.enableBuzzer", "true");
     }
     
     /**

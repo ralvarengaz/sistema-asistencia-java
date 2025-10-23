@@ -1,24 +1,16 @@
 /*
  * ============================================
- * Sistema de Control de Asistencia Biométrico
- * Firmware para Arduino UNO + Sensor DY50
+ * FIRMWARE OPTIMIZADO - SENSOR DY50
  * ============================================
- * Versión: 2.0
- * Fecha: 2025-10-20
- * Autor: Sistema Biométrico Java
+ * Versión: 4.1 - OPTIMIZADO PARA MEMORIA
+ * Fecha: 2025-10-22
  * 
- * Hardware:
- * - Arduino UNO
- * - Sensor de huella DY50 (compatible R30x)
- * - Buzzer en pin 6 (opcional)
- * - LED Rojo en pin 7
- * - LED Verde en pin 8
- * - LED Azul en pin 9
- * 
- * Protocolo de comunicación:
- * - Baudrate: 115200
- * - Formato: COMANDO:PARAMETROS
- * - Respuestas: TIPO:CODIGO:MENSAJE
+ * MEJORAS v4.1:
+ * - Corrección de error de compilación StringSumHelper
+ * - Optimización de memoria RAM y Flash
+ * - Uso intensivo de F() macro para strings
+ * - Simplificación de mensajes
+ * - Buffer optimizado
  */
 
 #include <Adafruit_Fingerprint.h>
@@ -27,20 +19,25 @@
 // ============================================
 // CONFIGURACIÓN DE PINES
 // ============================================
-#define SENSOR_RX 10  // Pin RX del sensor (conectado a TX del sensor)
-#define SENSOR_TX 11  // Pin TX del sensor (conectado a RX del sensor)
-#define BUZZER_PIN 6  // Pin del buzzer (opcional)
-#define LED_RED 7     // LED Rojo para errores
-#define LED_GREEN 8   // LED Verde para éxito
-#define LED_BLUE 9    // LED Azul para procesando
+#define SENSOR_RX 10
+#define SENSOR_TX 11
+#define BUZZER_PIN 6
+#define LED_RED 7
+#define LED_GREEN 8
+#define LED_BLUE 9
 
 // ============================================
 // CONSTANTES
 // ============================================
-#define BAUDRATE 115200        // Velocidad de comunicación con PC
-#define TIMEOUT 20000          // 20 segundos de timeout
-#define MAX_BUFFER 128         // Tamaño del buffer de comandos
-#define MAX_FINGERPRINTS 255   // Capacidad máxima del sensor
+#define BAUDRATE_PC 115200
+#define TIMEOUT 20000
+#define MAX_BUFFER 32
+
+// Baudrates más comunes primero
+const long SENSOR_BAUDRATES[] PROGMEM = {
+  9600, 57600, 19200, 38400, 115200
+};
+#define NUM_BAUDRATES 5
 
 // ============================================
 // OBJETOS GLOBALES
@@ -49,521 +46,563 @@ SoftwareSerial mySerial(SENSOR_RX, SENSOR_TX);
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 
 // Variables globales
-char commandBuffer[MAX_BUFFER];
-uint8_t bufferIndex = 0;
-bool buzzerEnabled = true;
+char cmdBuf[MAX_BUFFER];
+uint8_t bufIdx = 0;
+bool buzzerOn = true;
+long sensorBaud = 0;
 
 // ============================================
-// SETUP - INICIALIZACIÓN
+// FUNCIONES DE COMUNICACIÓN
+// ============================================
+void sendStatus(const char* code, const char* msg) {
+  Serial.print(F("STATUS:"));
+  Serial.print(code);
+  Serial.print(F(":"));
+  Serial.println(msg);
+}
+
+void sendError(const char* code, const char* msg) {
+  Serial.print(F("ERROR:"));
+  Serial.print(code);
+  Serial.print(F(":"));
+  Serial.println(msg);
+}
+
+void sendNum(const char* code, long num) {
+  Serial.print(F("STATUS:"));
+  Serial.print(code);
+  Serial.print(F(":"));
+  Serial.println(num);
+}
+
+// ============================================
+// SETUP
 // ============================================
 void setup() {
-  // Inicializar comunicación serial con PC
-  Serial.begin(BAUDRATE);
-  while (!Serial && millis() < 3000);  // Esperar hasta 3 segundos
+  Serial.begin(BAUDRATE_PC);
+  while (!Serial && millis() < 3000);
   
-  // Configurar pines de salida
+  // Configurar pines
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_RED, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
   
-  // Apagar todos los LEDs
   allLedsOff();
   
-  // Mensaje de inicio
-  sendStatus("INIT", "Iniciando sistema");
+  Serial.println(F("\n========================================"));
+  Serial.println(F("  SISTEMA BIOMETRICO v4.1 OPTIMIZADO"));
+  Serial.println(F("========================================\n"));
   
-  // Inicializar sensor de huella
-  finger.begin(57600);
-  delay(100);
+  sendStatus("INIT", "Sistema iniciado");
   
-  // Verificar conexión con el sensor
-  if (finger.verifyPassword()) {
-    sendStatus("SENSOR_OK", "Sensor conectado correctamente");
-    blinkLed(LED_GREEN, 2, 200);
-    beep(1, 100);
+  // Test rápido hardware
+  digitalWrite(LED_RED, HIGH);
+  delay(80);
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, HIGH);
+  delay(80);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_BLUE, HIGH);
+  delay(80);
+  digitalWrite(LED_BLUE, LOW);
+  
+  beep(1, 50);
+  sendStatus("HARDWARE", "OK");
+  
+  // Detectar sensor
+  if (detectSensor()) {
+    Serial.println(F("*** SENSOR CONECTADO ***"));
+    sendStatus("SENSOR_OK", "DY50 conectado");
+    sendNum("BAUDRATE", sensorBaud);
+    
+    blinkLed(LED_GREEN, 3, 200);
+    beep(2, 100);
+    
+    delay(100);
+    finger.getParameters();
+    
+    sendNum("CAPACITY", finger.capacity);
+    sendNum("TEMPLATES", finger.templateCount);
+    
+    sendStatus("READY", "Listo");
+    
   } else {
-    sendError("SENSOR_ERROR", "No se puede comunicar con el sensor");
-    blinkLed(LED_RED, 5, 100);
-    beep(3, 50);
-    while (1) { delay(1); }  // Detener ejecución si no hay sensor
+    Serial.println(F("*** SENSOR NO DETECTADO ***"));
+    sendError("SENSOR_ERROR", "No detectado");
+    printHelp();
+    blinkLed(LED_RED, 5, 200);
+    beep(3, 100);
+    sendStatus("READY", "Modo diagnostico");
   }
   
-  // Obtener información del sensor
-  finger.getParameters();
-  sendStatus("CAPACITY", String(finger.capacity));
-  sendStatus("TEMPLATES", String(finger.templateCount));
-  sendStatus("PACKET_SIZE", String(finger.packetLen));
+  Serial.println(F("\nComandos: DETECT, HARDWARE, HELP, PING\n"));
+}
+
+// ============================================
+// DETECCIÓN DE SENSOR (CORREGIDA)
+// ============================================
+bool detectSensor() {
+  setLed(LED_BLUE);
   
-  // Sistema listo
-  sendStatus("READY", "Sistema listo para recibir comandos");
-  beep(1, 100);
+  // Probar baudrates más comunes
+  for (int i = 0; i < NUM_BAUDRATES; i++) {
+    long testBaud = pgm_read_dword(&SENSOR_BAUDRATES[i]);
+    
+    Serial.print(F("Probando "));
+    Serial.print(testBaud);
+    Serial.print(F("..."));
+    
+    // 2 intentos por baudrate
+    for (int attempt = 0; attempt < 2; attempt++) {
+      mySerial.end();
+      delay(50);
+      mySerial.begin(testBaud);
+      finger.begin(testBaud);
+      delay(200);
+      
+      if (finger.verifyPassword()) {
+        sensorBaud = testBaud;
+        Serial.println(F(" OK"));
+        allLedsOff();
+        return true;
+      }
+      delay(80);
+    }
+    Serial.println(F(" X"));
+  }
+  
+  allLedsOff();
+  return false;
+}
+
+// ============================================
+// AYUDA SIMPLIFICADA
+// ============================================
+void printHelp() {
+  Serial.println(F("\n--- VERIFICAR ---"));
+  Serial.println(F("1. VCC (Rojo) --> 5V"));
+  Serial.println(F("2. GND (Negro) --> GND"));
+  Serial.println(F("3. TX (Blanco) --> Pin 10"));
+  Serial.println(F("4. RX (Verde) --> Pin 11"));
+  Serial.println(F("\nSi no funciona, invertir TX/RX"));
+}
+
+// ============================================
+// TEST DE HARDWARE
+// ============================================
+void testHardware() {
+  Serial.println(F("\n--- TEST HARDWARE ---"));
+  
+  Serial.print(F("LED Rojo...  "));
+  digitalWrite(LED_RED, HIGH);
+  delay(400);
+  digitalWrite(LED_RED, LOW);
+  Serial.println(F("OK"));
+  
+  Serial.print(F("LED Verde... "));
+  digitalWrite(LED_GREEN, HIGH);
+  delay(400);
+  digitalWrite(LED_GREEN, LOW);
+  Serial.println(F("OK"));
+  
+  Serial.print(F("LED Azul...  "));
+  digitalWrite(LED_BLUE, HIGH);
+  delay(400);
+  digitalWrite(LED_BLUE, LOW);
+  Serial.println(F("OK"));
+  
+  Serial.print(F("Buzzer...    "));
+  beep(2, 100);
+  Serial.println(F("OK"));
+  
+  Serial.print(F("Serial...    "));
+  Serial.println(F("OK (leyendo esto)"));
+  
+  Serial.println(F("\nTest completado"));
+  sendStatus("HARDWARE_TEST", "Completado");
 }
 
 // ============================================
 // LOOP PRINCIPAL
 // ============================================
 void loop() {
-  // Leer comandos desde el puerto serial
+  // Leer comandos
   while (Serial.available() > 0) {
     char c = Serial.read();
     
-    // Fin de comando
     if (c == '\n' || c == '\r') {
-      if (bufferIndex > 0) {
-        commandBuffer[bufferIndex] = '\0';
-        processCommand(commandBuffer);
-        bufferIndex = 0;
-        memset(commandBuffer, 0, MAX_BUFFER);  // Limpiar buffer
+      if (bufIdx > 0) {
+        cmdBuf[bufIdx] = '\0';
+        processCommand(cmdBuf);
+        bufIdx = 0;
       }
-    } 
-    // Agregar carácter al buffer
-    else if (bufferIndex < MAX_BUFFER - 1) {
-      commandBuffer[bufferIndex++] = c;
+    } else if (bufIdx < MAX_BUFFER - 1) {
+      cmdBuf[bufIdx++] = c;
     }
   }
-  
-  delay(10);  // Pequeña pausa para estabilidad
 }
 
 // ============================================
 // PROCESAMIENTO DE COMANDOS
 // ============================================
 void processCommand(char* cmd) {
-  String command = String(cmd);
-  command.trim();
+  // Convertir a mayúsculas
+  for (int i = 0; cmd[i]; i++) {
+    if (cmd[i] >= 'a' && cmd[i] <= 'z') {
+      cmd[i] -= 32;
+    }
+  }
   
-  // ENROLL:ID - Enrolar una nueva huella
-  if (command.startsWith("ENROLL:")) {
-    int id = command.substring(7).toInt();
-    if (id >= 1 && id <= MAX_FINGERPRINTS) {
-      enrollFingerprint(id);
+  // PING
+  if (strcmp(cmd, "PING") == 0) {
+    sendStatus("PONG", "Sistema activo");
+    if (sensorBaud > 0) {
+      sendNum("SENSOR_BAUD", sensorBaud);
+    }
+  }
+  
+  // DETECT
+  else if (strcmp(cmd, "DETECT") == 0) {
+    sendStatus("DETECTING", "Buscando sensor...");
+    if (detectSensor()) {
+      sendStatus("SENSOR_OK", "Conectado");
+      sendNum("BAUDRATE", sensorBaud);
+      finger.getParameters();
+      sendNum("TEMPLATES", finger.templateCount);
     } else {
-      sendError("INVALID_ID", "ID debe estar entre 1 y 255");
+      sendError("SENSOR_ERROR", "No encontrado");
     }
   }
   
-  // VERIFY - Verificar huella
-  else if (command == "VERIFY") {
-    verifyFingerprint();
+  // HARDWARE
+  else if (strcmp(cmd, "HARDWARE") == 0) {
+    testHardware();
   }
   
-  // DELETE:ID - Eliminar huella por ID
-  else if (command.startsWith("DELETE:")) {
-    int id = command.substring(7).toInt();
-    deleteFingerprint(id);
+  // HELP
+  else if (strcmp(cmd, "HELP") == 0) {
+    printHelp();
+    sendStatus("HELP", "Mostrado");
   }
   
-  // EMPTY - Vaciar toda la base de datos del sensor
-  else if (command == "EMPTY") {
-    emptyDatabase();
+  // STATUS
+  else if (strcmp(cmd, "STATUS") == 0) {
+    if (sensorBaud > 0) {
+      sendStatus("CONNECTED", "Sensor OK");
+      sendNum("BAUDRATE", sensorBaud);
+      finger.getTemplateCount();
+      sendNum("TEMPLATES", finger.templateCount);
+    } else {
+      sendError("DISCONNECTED", "Sin sensor");
+    }
   }
   
-  // COUNT - Obtener cantidad de huellas registradas
-  else if (command == "COUNT") {
+  // ENROLL:ID
+  else if (strncmp(cmd, "ENROLL:", 7) == 0) {
+    if (sensorBaud == 0) {
+      sendError("NO_SENSOR", "Sensor desconectado");
+      return;
+    }
+    int id = atoi(cmd + 7);
+    enrollFinger(id);
+  }
+  
+  // VERIFY
+  else if (strcmp(cmd, "VERIFY") == 0) {
+    if (sensorBaud == 0) {
+      sendError("NO_SENSOR", "Sensor desconectado");
+      return;
+    }
+    verifyFinger();
+  }
+  
+  // DELETE:ID
+  else if (strncmp(cmd, "DELETE:", 7) == 0) {
+    if (sensorBaud == 0) {
+      sendError("NO_SENSOR", "Sensor desconectado");
+      return;
+    }
+    int id = atoi(cmd + 7);
+    deleteFinger(id);
+  }
+  
+  // EMPTY
+  else if (strcmp(cmd, "EMPTY") == 0) {
+    if (sensorBaud == 0) {
+      sendError("NO_SENSOR", "Sensor desconectado");
+      return;
+    }
+    emptyDB();
+  }
+  
+  // COUNT
+  else if (strcmp(cmd, "COUNT") == 0) {
+    if (sensorBaud == 0) {
+      sendError("NO_SENSOR", "Sensor desconectado");
+      return;
+    }
     finger.getTemplateCount();
-    sendStatus("TEMPLATES", String(finger.templateCount));
+    sendNum("TEMPLATES", finger.templateCount);
   }
   
-  // TEST - Ejecutar prueba del sensor y componentes
-  else if (command == "TEST") {
-    testSensor();
-  }
-  
-  // PING - Verificar comunicación
-  else if (command == "PING") {
-    sendStatus("PONG", "OK");
-  }
-  
-  // BUZZER:ON/OFF - Habilitar/deshabilitar buzzer
-  else if (command.startsWith("BUZZER:")) {
-    String state = command.substring(7);
-    state.toUpperCase();
-    if (state == "ON") {
-      buzzerEnabled = true;
-      sendStatus("BUZZER", "Habilitado");
-      beep(1, 50);
-    } else if (state == "OFF") {
-      buzzerEnabled = false;
-      sendStatus("BUZZER", "Deshabilitado");
+  // INFO
+  else if (strcmp(cmd, "INFO") == 0) {
+    if (sensorBaud == 0) {
+      sendError("NO_SENSOR", "Sensor desconectado");
+      return;
     }
+    sendInfo();
   }
   
-  // INFO - Información del sensor
-  else if (command == "INFO") {
-    sendSensorInfo();
+  // BUZZER:ON/OFF
+  else if (strncmp(cmd, "BUZZER:", 7) == 0) {
+    if (strcmp(cmd + 7, "ON") == 0) {
+      buzzerOn = true;
+      sendStatus("BUZZER", "ON");
+      beep(1, 50);
+    } else if (strcmp(cmd + 7, "OFF") == 0) {
+      buzzerOn = false;
+      sendStatus("BUZZER", "OFF");
+    }
   }
   
   // Comando desconocido
   else {
-    sendError("UNKNOWN_CMD", "Comando no reconocido: " + command);
+    sendError("UNKNOWN_CMD", cmd);
   }
 }
 
 // ============================================
-// ENROLAR HUELLA
+// OPERACIONES CON SENSOR
 // ============================================
-void enrollFingerprint(uint8_t id) {
-  sendStatus("ENROLL_START", String(id));
+
+void enrollFinger(uint8_t id) {
+  sendNum("ENROLL_START", id);
   setLed(LED_BLUE);
   
-  // ===== PRIMER ESCANEO =====
-  sendStatus("ENROLL_STEP", "Coloque el dedo en el sensor");
+  sendStatus("ENROLL_STEP", "Coloque dedo");
   beep(1, 100);
   
-  int p = -1;
-  unsigned long startTime = millis();
+  int p = waitForFinger();
+  if (p != FINGERPRINT_OK) return;
   
-  // Esperar a que se coloque el dedo
-  while (p != FINGERPRINT_OK) {
-    p = finger.getImage();
-    
-    // Verificar timeout
-    if (millis() - startTime > TIMEOUT) {
-      sendError("TIMEOUT", "Tiempo de espera agotado");
-      allLedsOff();
-      return;
-    }
-    
-    if (p == FINGERPRINT_OK) {
-      sendStatus("ENROLL_STEP", "Imagen capturada");
-      break;
-    } else if (p == FINGERPRINT_NOFINGER) {
-      // Esperando dedo...
-      continue;
-    } else if (p == FINGERPRINT_IMAGEFAIL) {
-      sendError("IMAGE_ERROR", "Error al capturar imagen");
-      blinkLed(LED_RED, 3, 200);
-      allLedsOff();
-      return;
-    }
-  }
+  sendStatus("ENROLL_STEP", "Capturado");
   
-  // Convertir imagen a características
   p = finger.image2Tz(1);
   if (p != FINGERPRINT_OK) {
-    sendError("CONVERT_ERROR", "Error al convertir imagen");
-    blinkLed(LED_RED, 3, 200);
+    sendError("CONVERT_ERR", "Error convertir");
     allLedsOff();
     return;
   }
   
-  sendStatus("ENROLL_STEP", "Primera imagen procesada");
+  sendStatus("ENROLL_STEP", "Primera OK");
   beep(2, 100);
   
-  // Esperar a que se retire el dedo
-  sendStatus("ENROLL_STEP", "Retire el dedo");
+  sendStatus("ENROLL_STEP", "Retire dedo");
   delay(2000);
   
-  p = 0;
-  while (p != FINGERPRINT_NOFINGER) {
-    p = finger.getImage();
+  while (finger.getImage() != FINGERPRINT_NOFINGER) {
     delay(100);
   }
   
-  // ===== SEGUNDO ESCANEO =====
-  sendStatus("ENROLL_STEP", "Coloque el mismo dedo nuevamente");
+  sendStatus("ENROLL_STEP", "Coloque otra vez");
   beep(1, 100);
   
-  p = -1;
-  startTime = millis();
+  p = waitForFinger();
+  if (p != FINGERPRINT_OK) return;
   
-  // Esperar segundo escaneo
-  while (p != FINGERPRINT_OK) {
-    p = finger.getImage();
-    
-    if (millis() - startTime > TIMEOUT) {
-      sendError("TIMEOUT", "Tiempo de espera agotado");
-      allLedsOff();
-      return;
-    }
-    
-    if (p == FINGERPRINT_OK) {
-      sendStatus("ENROLL_STEP", "Segunda imagen capturada");
-      break;
-    } else if (p == FINGERPRINT_NOFINGER) {
-      continue;
-    }
-  }
+  sendStatus("ENROLL_STEP", "Segunda captura");
   
-  // Convertir segunda imagen
   p = finger.image2Tz(2);
   if (p != FINGERPRINT_OK) {
-    sendError("CONVERT_ERROR", "Error al convertir segunda imagen");
-    blinkLed(LED_RED, 3, 200);
+    sendError("CONVERT_ERR", "Error convertir");
     allLedsOff();
     return;
   }
   
-  // Crear modelo unificado
   sendStatus("ENROLL_STEP", "Creando modelo");
   p = finger.createModel();
   
-  if (p == FINGERPRINT_OK) {
-    sendStatus("ENROLL_STEP", "Huellas coinciden - Guardando");
-  } else if (p == FINGERPRINT_ENROLLMISMATCH) {
-    sendError("MISMATCH", "Las huellas no coinciden - Intente nuevamente");
+  if (p == FINGERPRINT_ENROLLMISMATCH) {
+    sendError("MISMATCH", "No coinciden");
     blinkLed(LED_RED, 3, 200);
     allLedsOff();
     return;
-  } else {
-    sendError("MODEL_ERROR", "Error al crear modelo");
-    blinkLed(LED_RED, 3, 200);
+  } else if (p != FINGERPRINT_OK) {
+    sendError("MODEL_ERR", "Error modelo");
     allLedsOff();
     return;
   }
   
-  // Guardar modelo en la posición especificada
   p = finger.storeModel(id);
   
   if (p == FINGERPRINT_OK) {
-    sendStatus("ENROLL_SUCCESS", String(id));
+    sendNum("ENROLL_SUCCESS", id);
     blinkLed(LED_GREEN, 3, 200);
     beep(3, 100);
     
-    // Actualizar contador
     finger.getTemplateCount();
-    sendStatus("TEMPLATES", String(finger.templateCount));
-  } else if (p == FINGERPRINT_BADLOCATION) {
-    sendError("STORE_ERROR", "Ubicación de almacenamiento inválida");
-    blinkLed(LED_RED, 3, 200);
-  } else if (p == FINGERPRINT_FLASHERR) {
-    sendError("STORE_ERROR", "Error al escribir en memoria");
-    blinkLed(LED_RED, 3, 200);
+    sendNum("TEMPLATES", finger.templateCount);
   } else {
-    sendError("STORE_ERROR", "Error desconocido al guardar");
+    sendError("STORE_ERR", "Error guardar");
     blinkLed(LED_RED, 3, 200);
   }
   
   allLedsOff();
 }
 
-// ============================================
-// VERIFICAR HUELLA
-// ============================================
-void verifyFingerprint() {
-  sendStatus("VERIFY_START", "Esperando huella");
-  setLed(LED_BLUE);
+int waitForFinger() {
+  unsigned long start = millis();
   
-  int p = -1;
-  unsigned long startTime = millis();
-  
-  // Esperar a que se coloque el dedo
-  while (p != FINGERPRINT_OK) {
-    p = finger.getImage();
-    
-    if (millis() - startTime > TIMEOUT) {
-      sendError("TIMEOUT", "Tiempo de espera agotado");
-      allLedsOff();
-      return;
-    }
+  while (millis() - start < TIMEOUT) {
+    int p = finger.getImage();
     
     if (p == FINGERPRINT_OK) {
-      break;
+      return FINGERPRINT_OK;
     } else if (p == FINGERPRINT_NOFINGER) {
       continue;
     } else {
-      sendError("IMAGE_ERROR", "Error al capturar imagen");
-      blinkLed(LED_RED, 2, 200);
+      sendError("IMAGE_ERR", "Error captura");
       allLedsOff();
-      return;
+      return p;
     }
   }
   
-  // Convertir imagen
+  sendError("TIMEOUT", "Tiempo agotado");
+  allLedsOff();
+  return -1;
+}
+
+void verifyFinger() {
+  sendStatus("VERIFY_START", "Coloque dedo");
+  setLed(LED_BLUE);
+  
+  int p = waitForFinger();
+  if (p != FINGERPRINT_OK) return;
+  
   p = finger.image2Tz();
   if (p != FINGERPRINT_OK) {
-    sendError("CONVERT_ERROR", "Error al procesar huella");
-    blinkLed(LED_RED, 2, 200);
+    sendError("CONVERT_ERR", "Error procesar");
     allLedsOff();
     return;
   }
   
-  // Buscar coincidencia en la base de datos
   p = finger.fingerSearch();
   
   if (p == FINGERPRINT_OK) {
-    // ¡Huella encontrada!
-    String result = "VERIFY_SUCCESS:" + 
-                    String(finger.fingerID) + ":" + 
-                    String(finger.confidence);
-    Serial.println(result);
+    Serial.print(F("VERIFY_SUCCESS:"));
+    Serial.print(finger.fingerID);
+    Serial.print(F(":"));
+    Serial.println(finger.confidence);
     
     blinkLed(LED_GREEN, 2, 200);
     beep(1, 200);
-    
   } else if (p == FINGERPRINT_NOTFOUND) {
-    sendError("NOT_FOUND", "Huella no registrada en el sistema");
+    sendError("NOT_FOUND", "No registrada");
     blinkLed(LED_RED, 3, 100);
     beep(2, 50);
-    
   } else {
-    sendError("SEARCH_ERROR", "Error durante la búsqueda");
+    sendError("SEARCH_ERR", "Error busqueda");
     blinkLed(LED_RED, 2, 200);
   }
   
   allLedsOff();
 }
 
-// ============================================
-// ELIMINAR HUELLA
-// ============================================
-void deleteFingerprint(uint8_t id) {
+void deleteFinger(uint8_t id) {
   setLed(LED_BLUE);
   
   uint8_t p = finger.deleteModel(id);
   
   if (p == FINGERPRINT_OK) {
-    sendStatus("DELETE_SUCCESS", String(id));
+    sendNum("DELETE_SUCCESS", id);
     blinkLed(LED_GREEN, 2, 200);
     beep(1, 100);
     
-    // Actualizar contador
     finger.getTemplateCount();
-    sendStatus("TEMPLATES", String(finger.templateCount));
-    
-  } else if (p == FINGERPRINT_BADLOCATION) {
-    sendError("DELETE_ERROR", "ID inválido: " + String(id));
-    blinkLed(LED_RED, 2, 200);
+    sendNum("TEMPLATES", finger.templateCount);
   } else {
-    sendError("DELETE_ERROR", "No se pudo eliminar ID " + String(id));
+    sendError("DELETE_ERR", "Error eliminar");
     blinkLed(LED_RED, 2, 200);
   }
   
   allLedsOff();
 }
 
-// ============================================
-// VACIAR BASE DE DATOS DEL SENSOR
-// ============================================
-void emptyDatabase() {
+void emptyDB() {
   setLed(LED_BLUE);
-  
-  sendStatus("EMPTY_START", "Eliminando todas las huellas");
+  sendStatus("EMPTY_START", "Borrando BD");
   
   uint8_t p = finger.emptyDatabase();
   
   if (p == FINGERPRINT_OK) {
-    sendStatus("EMPTY_SUCCESS", "Base de datos limpiada");
+    sendStatus("EMPTY_SUCCESS", "BD limpia");
     blinkLed(LED_GREEN, 3, 200);
     beep(2, 150);
     
     finger.getTemplateCount();
-    sendStatus("TEMPLATES", "0");
+    sendNum("TEMPLATES", 0);
   } else {
-    sendError("EMPTY_ERROR", "Error al limpiar base de datos");
+    sendError("EMPTY_ERR", "Error limpiar");
     blinkLed(LED_RED, 3, 200);
   }
   
   allLedsOff();
 }
 
-// ============================================
-// PROBAR SENSOR Y COMPONENTES
-// ============================================
-void testSensor() {
-  sendStatus("TEST_START", "Iniciando prueba de sistema");
-  
-  // Probar LEDs
-  sendStatus("TEST_STEP", "Probando LED Rojo");
-  setLed(LED_RED);
-  delay(500);
-  
-  sendStatus("TEST_STEP", "Probando LED Verde");
-  setLed(LED_GREEN);
-  delay(500);
-  
-  sendStatus("TEST_STEP", "Probando LED Azul");
-  setLed(LED_BLUE);
-  delay(500);
-  
-  allLedsOff();
-  
-  // Probar Buzzer
-  sendStatus("TEST_STEP", "Probando Buzzer");
-  beep(3, 100);
-  
-  // Probar sensor
-  sendStatus("TEST_STEP", "Probando sensor");
-  int p = finger.getImage();
-  
-  if (p == FINGERPRINT_NOFINGER) {
-    sendStatus("TEST_RESULT", "Sensor OK - Sin dedo detectado");
-  } else if (p == FINGERPRINT_OK) {
-    sendStatus("TEST_RESULT", "Sensor OK - Dedo detectado");
-  } else {
-    sendError("TEST_ERROR", "Sensor con problemas - Código: " + String(p));
-  }
-  
-  sendStatus("TEST_COMPLETE", "Prueba finalizada");
-  blinkLed(LED_GREEN, 2, 200);
-}
-
-// ============================================
-// INFORMACIÓN DEL SENSOR
-// ============================================
-void sendSensorInfo() {
+void sendInfo() {
   finger.getParameters();
   
-  Serial.println("INFO:STATUS_REG:" + String(finger.status_reg, HEX));
-  Serial.println("INFO:SYSTEM_ID:" + String(finger.system_id, HEX));
-  Serial.println("INFO:CAPACITY:" + String(finger.capacity));
-  Serial.println("INFO:SECURITY:" + String(finger.security_level));
-  Serial.println("INFO:ADDRESS:" + String(finger.device_addr, HEX));
-  Serial.println("INFO:PACKET_LEN:" + String(finger.packetLen));
-  Serial.println("INFO:BAUD:" + String(finger.baud_rate));
-  Serial.println("INFO:TEMPLATES:" + String(finger.templateCount));
-}
-
-// ============================================
-// FUNCIONES DE UTILIDAD
-// ============================================
-
-// Enviar mensaje de estado
-void sendStatus(String code, String message) {
-  Serial.println("STATUS:" + code + ":" + message);
-}
-
-// Enviar mensaje de error
-void sendError(String code, String message) {
-  Serial.println("ERROR:" + code + ":" + message);
-}
-
-// Hacer sonar el buzzer
-void beep(int times, int duration) {
-  if (!buzzerEnabled) return;
+  Serial.print(F("INFO:CAPACITY:"));
+  Serial.println(finger.capacity);
   
+  Serial.print(F("INFO:TEMPLATES:"));
+  Serial.println(finger.templateCount);
+  
+  Serial.print(F("INFO:PACKET_LEN:"));
+  Serial.println(finger.packet_len);
+  
+  Serial.print(F("INFO:SECURITY:"));
+  Serial.println(finger.security_level);
+  
+  Serial.print(F("INFO:BAUDRATE:"));
+  Serial.println(sensorBaud);
+}
+
+// ============================================
+// UTILIDADES
+// ============================================
+void beep(int times, int dur) {
+  if (!buzzerOn) return;
   for (int i = 0; i < times; i++) {
     digitalWrite(BUZZER_PIN, HIGH);
-    delay(duration);
+    delay(dur);
     digitalWrite(BUZZER_PIN, LOW);
-    if (i < times - 1) delay(duration);
+    if (i < times - 1) delay(dur);
   }
 }
 
-// Encender un LED específico
 void setLed(int pin) {
   allLedsOff();
   digitalWrite(pin, HIGH);
 }
 
-// Apagar todos los LEDs
 void allLedsOff() {
   digitalWrite(LED_RED, LOW);
   digitalWrite(LED_GREEN, LOW);
   digitalWrite(LED_BLUE, LOW);
 }
 
-// Parpadear un LED
-void blinkLed(int pin, int times, int duration) {
+void blinkLed(int pin, int times, int dur) {
   for (int i = 0; i < times; i++) {
     digitalWrite(pin, HIGH);
-    delay(duration);
+    delay(dur);
     digitalWrite(pin, LOW);
-    delay(duration);
+    delay(dur);
   }
 }
 
 // ============================================
-// FIN DEL CÓDIGO
+// FIN v4.1 - OPTIMIZADO
 // ============================================

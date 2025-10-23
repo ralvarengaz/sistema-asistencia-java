@@ -7,13 +7,17 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Servicio de comunicación con Arduino
+ * Baudrate: 57600 (configurado para sensor DY50)
  * 
  * @author Sistema Biométrico
- * @version 1.0
+ * @version 2.0 - Optimizado
  */
 public class ArduinoCommService {
     
     private static final Logger logger = LoggerFactory.getLogger(ArduinoCommService.class);
+    
+    // BAUDRATE CORRECTO PARA SENSOR DY50
+    private static final int DEFAULT_BAUDRATE = 57600;
     
     private SerialPortManager serialManager;
     private String currentPort;
@@ -21,14 +25,27 @@ public class ArduinoCommService {
     
     public ArduinoCommService() {
         this.serialManager = new SerialPortManager();
-        this.baudRate = Integer.parseInt(DatabaseConfig.getProperty("arduino.baudRate", "115200"));
+        
+        // Obtener baudrate desde configuración
+        String baudRateStr = DatabaseConfig.getProperty("arduino.baudRate", String.valueOf(DEFAULT_BAUDRATE));
+        try {
+            this.baudRate = Integer.parseInt(baudRateStr);
+            logger.info("Baudrate configurado: {} baudios", this.baudRate);
+        } catch (NumberFormatException e) {
+            logger.warn("Baudrate inválido en configuración, usando default: {}", DEFAULT_BAUDRATE);
+            this.baudRate = DEFAULT_BAUDRATE;
+        }
     }
     
     /**
      * Conecta con Arduino en el puerto especificado
      */
     public boolean connect(String portName) {
-        logger.info("Intentando conectar con Arduino en {}", portName);
+        logger.info("═══════════════════════════════════════");
+        logger.info("  Intentando conectar con Arduino");
+        logger.info("  Puerto: {}", portName);
+        logger.info("  Baudrate: {} baudios", baudRate);
+        logger.info("═══════════════════════════════════════");
         
         boolean connected = serialManager.connect(portName, baudRate);
         
@@ -36,14 +53,23 @@ public class ArduinoCommService {
             currentPort = portName;
             
             // Verificar comunicación con PING
+            logger.info("Verificando comunicación con sensor...");
             if (ping()) {
-                logger.info("Comunicación con Arduino establecida correctamente");
+                logger.info("✓ Comunicación establecida correctamente");
+                logger.info("✓ Sensor responde a comandos");
+                
+                // Obtener info del sensor
+                getSensorInfo();
+                
                 return true;
             } else {
-                logger.warn("Arduino conectado pero no responde a PING");
+                logger.warn("⚠ Arduino conectado pero no responde a PING");
+                logger.warn("⚠ Verifique que el firmware esté cargado correctamente");
                 serialManager.disconnect();
                 return false;
             }
+        } else {
+            logger.error("✗ No se pudo conectar con Arduino en {}", portName);
         }
         
         return false;
@@ -55,7 +81,7 @@ public class ArduinoCommService {
     public void disconnect() {
         serialManager.disconnect();
         currentPort = null;
-        logger.info("Desconectado de Arduino");
+        logger.info("⊗ Desconectado de Arduino");
     }
     
     /**
@@ -82,12 +108,36 @@ public class ArduinoCommService {
         String response = serialManager.readLine(2000);
         
         if (response != null && response.contains("PONG")) {
-            logger.debug("PING exitoso");
+            logger.debug("✓ PING exitoso");
             return true;
         }
         
-        logger.warn("No se recibió respuesta PONG");
+        logger.warn("⚠ No se recibió respuesta PONG");
         return false;
+    }
+    
+    /**
+     * Obtiene información del sensor
+     */
+    private void getSensorInfo() {
+        serialManager.clearBuffer();
+        serialManager.sendCommand("INFO");
+        
+        // Esperar respuestas múltiples
+        long startTime = System.currentTimeMillis();
+        StringBuilder info = new StringBuilder();
+        
+        while (System.currentTimeMillis() - startTime < 1000) {
+            String line = serialManager.readLine(100);
+            if (line != null && line.startsWith("INFO:")) {
+                info.append(line).append("\n");
+                logger.debug(line);
+            }
+        }
+        
+        if (info.length() > 0) {
+            logger.info("Información del sensor recibida");
+        }
     }
     
     /**
@@ -108,7 +158,10 @@ public class ArduinoCommService {
             return false;
         }
         
-        logger.info("Iniciando enrolamiento para ID: {}", fingerprintId);
+        logger.info("═══════════════════════════════════════");
+        logger.info("  Iniciando enrolamiento");
+        logger.info("  ID: {}", fingerprintId);
+        logger.info("═══════════════════════════════════════");
         
         // Limpiar buffer
         serialManager.clearBuffer();
@@ -122,6 +175,9 @@ public class ArduinoCommService {
         return true;
     }
     
+    /**
+     * Escucha el proceso de enrolamiento
+     */
     private void listenEnrollProcess(EnrollCallback callback) {
         boolean finished = false;
         long timeout = 30000; // 30 segundos
@@ -131,7 +187,7 @@ public class ArduinoCommService {
             String response = serialManager.readLine(100);
             
             if (response != null) {
-                logger.debug("Respuesta enroll: {}", response);
+                logger.debug("← {}", response);
                 
                 if (response.startsWith("STATUS:ENROLL_START:")) {
                     String id = response.split(":")[2];
@@ -143,6 +199,7 @@ public class ArduinoCommService {
                     
                 } else if (response.startsWith("STATUS:ENROLL_SUCCESS:")) {
                     String id = response.split(":")[2];
+                    logger.info("✓ Enrolamiento exitoso - ID: {}", id);
                     callback.onSuccess(Integer.parseInt(id));
                     finished = true;
                     
@@ -150,6 +207,7 @@ public class ArduinoCommService {
                     String[] parts = response.split(":", 3);
                     String errorCode = parts.length > 1 ? parts[1] : "UNKNOWN";
                     String errorMessage = parts.length > 2 ? parts[2] : "Error desconocido";
+                    logger.error("✗ Error en enrolamiento: {} - {}", errorCode, errorMessage);
                     callback.onError(errorMessage);
                     finished = true;
                 }
@@ -164,6 +222,7 @@ public class ArduinoCommService {
         }
         
         if (!finished) {
+            logger.error("✗ Timeout: El proceso tardó demasiado");
             callback.onError("Timeout: El proceso tardó demasiado");
         }
     }
@@ -177,7 +236,7 @@ public class ArduinoCommService {
             return;
         }
         
-        logger.info("Iniciando verificación de huella");
+        logger.info("Iniciando verificación de huella...");
         
         serialManager.clearBuffer();
         serialManager.sendCommand("VERIFY");
@@ -185,6 +244,9 @@ public class ArduinoCommService {
         new Thread(() -> listenVerifyProcess(callback)).start();
     }
     
+    /**
+     * Escucha el proceso de verificación
+     */
     private void listenVerifyProcess(VerifyCallback callback) {
         boolean finished = false;
         long timeout = 15000; // 15 segundos
@@ -194,7 +256,7 @@ public class ArduinoCommService {
             String response = serialManager.readLine(100);
             
             if (response != null) {
-                logger.debug("Respuesta verify: {}", response);
+                logger.debug("← {}", response);
                 
                 if (response.startsWith("STATUS:VERIFY_START")) {
                     callback.onWaiting("Esperando huella...");
@@ -204,17 +266,20 @@ public class ArduinoCommService {
                     if (parts.length >= 3) {
                         int fingerprintId = Integer.parseInt(parts[1]);
                         int confidence = Integer.parseInt(parts[2]);
+                        logger.info("✓ Huella verificada - ID: {}, Confianza: {}", fingerprintId, confidence);
                         callback.onSuccess(fingerprintId, confidence);
                         finished = true;
                     }
                     
                 } else if (response.startsWith("ERROR:NOT_FOUND")) {
+                    logger.warn("⚠ Huella no encontrada en el sistema");
                     callback.onNotFound();
                     finished = true;
                     
                 } else if (response.startsWith("ERROR:")) {
                     String[] parts = response.split(":", 3);
                     String errorMessage = parts.length > 2 ? parts[2] : "Error desconocido";
+                    logger.error("✗ Error en verificación: {}", errorMessage);
                     callback.onError(errorMessage);
                     finished = true;
                 }
@@ -229,6 +294,7 @@ public class ArduinoCommService {
         }
         
         if (!finished) {
+            logger.error("✗ Timeout en verificación");
             callback.onError("Timeout: El proceso tardó demasiado");
         }
     }
@@ -238,15 +304,26 @@ public class ArduinoCommService {
      */
     public boolean deleteFingerprint(int fingerprintId) {
         if (!isConnected()) {
+            logger.error("✗ No hay conexión con Arduino");
             return false;
         }
+        
+        logger.info("Eliminando huella ID: {}", fingerprintId);
         
         serialManager.clearBuffer();
         serialManager.sendCommand("DELETE:" + fingerprintId);
         
         String response = serialManager.readLine(3000);
         
-        return response != null && response.contains("DELETE_SUCCESS");
+        boolean success = response != null && response.contains("DELETE_SUCCESS");
+        
+        if (success) {
+            logger.info("✓ Huella {} eliminada del sensor", fingerprintId);
+        } else {
+            logger.warn("⚠ No se pudo eliminar huella {}", fingerprintId);
+        }
+        
+        return success;
     }
     
     /**
@@ -254,6 +331,7 @@ public class ArduinoCommService {
      */
     public int getTemplateCount() {
         if (!isConnected()) {
+            logger.warn("⚠ No hay conexión con Arduino");
             return -1;
         }
         
@@ -264,16 +342,44 @@ public class ArduinoCommService {
         
         if (response != null && response.startsWith("STATUS:TEMPLATES:")) {
             try {
-                return Integer.parseInt(response.split(":")[2]);
+                int count = Integer.parseInt(response.split(":")[2]);
+                logger.info("ℹ Huellas en sensor: {}", count);
+                return count;
             } catch (Exception e) {
-                logger.error("Error parseando cantidad de templates", e);
+                logger.error("✗ Error parseando cantidad de templates", e);
             }
         }
         
         return -1;
     }
     
-    // Interfaces de callbacks
+    /**
+     * Ejecuta un test del sensor
+     */
+    public void runTest() {
+        if (!isConnected()) {
+            logger.warn("⚠ No hay conexión con Arduino");
+            return;
+        }
+        
+        logger.info("Ejecutando test del sensor...");
+        serialManager.clearBuffer();
+        serialManager.sendCommand("TEST");
+        
+        // Esperar respuestas del test
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < 5000) {
+            String line = serialManager.readLine(100);
+            if (line != null) {
+                logger.info("TEST: {}", line);
+            }
+        }
+    }
+    
+    // ============================================
+    // INTERFACES DE CALLBACKS
+    // ============================================
+    
     public interface EnrollCallback {
         void onProgress(String message);
         void onSuccess(int fingerprintId);
