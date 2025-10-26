@@ -11,43 +11,31 @@ import java.awt.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Panel de Enrolamiento - VERSIÓN OPTIMIZADA
- * Mejoras en flujo, validaciones y experiencia de usuario
- * 
- * @author Sistema Biométrico
- * @version 2.0 - Optimizado
- */
 public class EnrollPanel extends JPanel {
     
     private static final Logger logger = LoggerFactory.getLogger(EnrollPanel.class);
     
     private ArduinoCommService arduinoService;
     
-    // Componentes de conexión
     private JComboBox<String> cmbPorts;
     private JButton btnConnect;
     private JButton btnRefreshPorts;
     private JLabel lblConnectionStatus;
     private JLabel lblSensorInfo;
     
-    // Componentes de selección
     private JComboBox<UserItem> cmbUsers;
     private JTextField txtFingerprintId;
     private JButton btnAutoAssignId;
     private JButton btnStartEnroll;
     private JButton btnCancelEnroll;
     
-    // Componentes de progreso
     private JTextArea txtLog;
     private JProgressBar progressBar;
     private JLabel lblCurrentStep;
     private JLabel lblStepCount;
     
-    // Estado
     private boolean enrolling = false;
     private int nextAvailableId = 1;
     
@@ -64,10 +52,8 @@ public class EnrollPanel extends JPanel {
         setBackground(new Color(250, 250, 250));
         setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         
-        // Header
         JPanel headerPanel = createHeaderPanel();
         
-        // Main content
         JPanel mainPanel = new JPanel(new GridLayout(1, 2, 20, 0));
         mainPanel.setOpaque(false);
         
@@ -86,12 +72,12 @@ public class EnrollPanel extends JPanel {
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
         titlePanel.setOpaque(false);
         
-        JLabel lblTitle = new JLabel("👆 Enrolar Huella Dactilar");
+        JLabel lblTitle = new JLabel("Enrolar Huella Dactilar");
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 28));
         lblTitle.setForeground(new Color(44, 62, 80));
         lblTitle.setAlignmentX(LEFT_ALIGNMENT);
         
-        JLabel lblSubtitle = new JLabel("Registro biométrico de usuarios en el sensor");
+        JLabel lblSubtitle = new JLabel("Registro biometrico de usuarios en el sensor");
         lblSubtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblSubtitle.setForeground(new Color(127, 140, 141));
         lblSubtitle.setAlignmentX(LEFT_ALIGNMENT);
@@ -106,176 +92,154 @@ public class EnrollPanel extends JPanel {
     }
     
     private JPanel createLeftPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(220, 220, 220), 1, true),
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         
-        // SECCIÓN 1: Conexión Arduino
-        JPanel connectionSection = createSection("① Conexión con Sensor");
-        
-        JPanel portPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
-        portPanel.setOpaque(false);
+        JPanel connectionPanel = new JPanel();
+        connectionPanel.setLayout(new BoxLayout(connectionPanel, BoxLayout.Y_AXIS));
+        connectionPanel.setOpaque(false);
+        connectionPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            "Conexion con Arduino",
+            0, 0,
+            new Font("Segoe UI", Font.BOLD, 14)
+        ));
         
         JLabel lblPort = new JLabel("Puerto COM:");
         lblPort.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblPort.setAlignmentX(LEFT_ALIGNMENT);
+        
+        JPanel portPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        portPanel.setOpaque(false);
+        portPanel.setAlignmentX(LEFT_ALIGNMENT);
         
         cmbPorts = new JComboBox<>();
-        cmbPorts.setPreferredSize(new Dimension(130, 32));
         cmbPorts.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cmbPorts.setPreferredSize(new Dimension(150, 30));
         
         btnRefreshPorts = new JButton("↻");
         btnRefreshPorts.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        btnRefreshPorts.setPreferredSize(new Dimension(40, 32));
+        btnRefreshPorts.setPreferredSize(new Dimension(40, 30));
         btnRefreshPorts.setToolTipText("Actualizar puertos");
-        btnRefreshPorts.setFocusPainted(false);
         btnRefreshPorts.addActionListener(e -> refreshPorts());
         
+        portPanel.add(cmbPorts);
+        portPanel.add(btnRefreshPorts);
+        
         btnConnect = new JButton("CONECTAR");
-        btnConnect.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnConnect.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btnConnect.setBackground(new Color(46, 204, 113));
         btnConnect.setForeground(Color.WHITE);
         btnConnect.setFocusPainted(false);
-        btnConnect.setBorderPainted(false);
-        btnConnect.setPreferredSize(new Dimension(130, 32));
+        btnConnect.setPreferredSize(new Dimension(200, 40));
+        btnConnect.setMaximumSize(new Dimension(300, 40));
+        btnConnect.setAlignmentX(LEFT_ALIGNMENT);
         btnConnect.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnConnect.addActionListener(e -> toggleConnection());
         
-        portPanel.add(lblPort);
-        portPanel.add(cmbPorts);
-        portPanel.add(btnRefreshPorts);
-        portPanel.add(btnConnect);
-        
-        lblConnectionStatus = new JLabel("● DESCONECTADO");
+        lblConnectionStatus = new JLabel("DESCONECTADO");
         lblConnectionStatus.setFont(new Font("Segoe UI", Font.BOLD, 13));
         lblConnectionStatus.setForeground(new Color(231, 76, 60));
         lblConnectionStatus.setAlignmentX(LEFT_ALIGNMENT);
         
-        lblSensorInfo = new JLabel("Sensor: Esperando conexión...");
-        lblSensorInfo.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        lblSensorInfo = new JLabel("Sensor: Esperando conexion...");
+        lblSensorInfo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblSensorInfo.setForeground(new Color(127, 140, 141));
         lblSensorInfo.setAlignmentX(LEFT_ALIGNMENT);
         
-        connectionSection.add(portPanel);
-        connectionSection.add(Box.createVerticalStrut(10));
-        connectionSection.add(lblConnectionStatus);
-        connectionSection.add(Box.createVerticalStrut(5));
-        connectionSection.add(lblSensorInfo);
+        connectionPanel.add(lblPort);
+        connectionPanel.add(Box.createVerticalStrut(5));
+        connectionPanel.add(portPanel);
+        connectionPanel.add(Box.createVerticalStrut(12));
+        connectionPanel.add(btnConnect);
+        connectionPanel.add(Box.createVerticalStrut(10));
+        connectionPanel.add(lblConnectionStatus);
+        connectionPanel.add(Box.createVerticalStrut(5));
+        connectionPanel.add(lblSensorInfo);
         
-        // SECCIÓN 2: Selección de Usuario
-        JPanel userSection = createSection("② Seleccionar Usuario");
+        JPanel enrollPanel = new JPanel();
+        enrollPanel.setLayout(new BoxLayout(enrollPanel, BoxLayout.Y_AXIS));
+        enrollPanel.setOpaque(false);
+        enrollPanel.setBorder(BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(new Color(200, 200, 200)),
+            "Datos de Enrolamiento",
+            0, 0,
+            new Font("Segoe UI", Font.BOLD, 14)
+        ));
         
-        JLabel lblUser = new JLabel("Usuario:");
+        JLabel lblUser = new JLabel("Seleccionar Usuario:");
         lblUser.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblUser.setAlignmentX(LEFT_ALIGNMENT);
         
         cmbUsers = new JComboBox<>();
         cmbUsers.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        cmbUsers.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        cmbUsers.setMaximumSize(new Dimension(350, 30));
         cmbUsers.setAlignmentX(LEFT_ALIGNMENT);
         cmbUsers.addActionListener(e -> onUserSelected());
         
-        JButton btnReloadUsers = new JButton("🔄 Recargar Lista");
-        btnReloadUsers.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        btnReloadUsers.setAlignmentX(LEFT_ALIGNMENT);
-        btnReloadUsers.setFocusPainted(false);
-        btnReloadUsers.addActionListener(e -> {
-            loadUsers();
-            calculateNextAvailableId();
-        });
+        JLabel lblFingerprintId = new JLabel("ID de Huella (1-255):");
+        lblFingerprintId.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblFingerprintId.setAlignmentX(LEFT_ALIGNMENT);
         
-        userSection.add(lblUser);
-        userSection.add(Box.createVerticalStrut(5));
-        userSection.add(cmbUsers);
-        userSection.add(Box.createVerticalStrut(10));
-        userSection.add(btnReloadUsers);
-        
-        // SECCIÓN 3: ID de Huella
-        JPanel idSection = createSection("③ Asignar ID de Huella");
-        
-        JLabel lblId = new JLabel("ID en el sensor (1-255):");
-        lblId.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        lblId.setAlignmentX(LEFT_ALIGNMENT);
-        
-        JPanel idInputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        idInputPanel.setOpaque(false);
-        idInputPanel.setAlignmentX(LEFT_ALIGNMENT);
-        idInputPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        JPanel idPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        idPanel.setOpaque(false);
+        idPanel.setAlignmentX(LEFT_ALIGNMENT);
         
         txtFingerprintId = new JTextField(10);
-        txtFingerprintId.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        txtFingerprintId.setPreferredSize(new Dimension(100, 35));
+        txtFingerprintId.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        txtFingerprintId.setPreferredSize(new Dimension(100, 30));
         
         btnAutoAssignId = new JButton("Auto-Asignar");
-        btnAutoAssignId.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        btnAutoAssignId.setPreferredSize(new Dimension(100, 35));
-        btnAutoAssignId.setFocusPainted(false);
-        btnAutoAssignId.setToolTipText("Asignar próximo ID disponible");
+        btnAutoAssignId.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnAutoAssignId.setPreferredSize(new Dimension(110, 30));
+        btnAutoAssignId.setToolTipText("Asignar siguiente ID disponible");
         btnAutoAssignId.addActionListener(e -> autoAssignId());
         
-        idInputPanel.add(txtFingerprintId);
-        idInputPanel.add(btnAutoAssignId);
+        idPanel.add(txtFingerprintId);
+        idPanel.add(btnAutoAssignId);
         
-        JLabel lblIdHelp = new JLabel(
-            "<html><small>💡 Sugerencia: Usar DNI o número correlativo</small></html>");
-        lblIdHelp.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-        lblIdHelp.setForeground(new Color(127, 140, 141));
-        lblIdHelp.setAlignmentX(LEFT_ALIGNMENT);
-        
-        JLabel lblNextId = new JLabel("Próximo ID disponible: " + nextAvailableId);
-        lblNextId.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        lblNextId.setForeground(new Color(52, 152, 219));
-        lblNextId.setAlignmentX(LEFT_ALIGNMENT);
-        
-        idSection.add(lblId);
-        idSection.add(Box.createVerticalStrut(5));
-        idSection.add(idInputPanel);
-        idSection.add(Box.createVerticalStrut(8));
-        idSection.add(lblIdHelp);
-        idSection.add(Box.createVerticalStrut(3));
-        idSection.add(lblNextId);
-        
-        // Botones de acción
-        JPanel buttonPanel = new JPanel(new GridLayout(2, 1, 0, 10));
-        buttonPanel.setOpaque(false);
-        buttonPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
-        buttonPanel.setAlignmentX(LEFT_ALIGNMENT);
-        
-        btnStartEnroll = new JButton("▶ INICIAR ENROLAMIENTO");
-        btnStartEnroll.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        btnStartEnroll.setBackground(new Color(41, 128, 185));
+        btnStartEnroll = new JButton("INICIAR ENROLAMIENTO");
+        btnStartEnroll.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnStartEnroll.setBackground(new Color(52, 152, 219));
         btnStartEnroll.setForeground(Color.WHITE);
         btnStartEnroll.setFocusPainted(false);
-        btnStartEnroll.setBorderPainted(false);
+        btnStartEnroll.setPreferredSize(new Dimension(200, 45));
+        btnStartEnroll.setMaximumSize(new Dimension(300, 45));
+        btnStartEnroll.setAlignmentX(LEFT_ALIGNMENT);
         btnStartEnroll.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnStartEnroll.setEnabled(false);
         btnStartEnroll.addActionListener(e -> startEnrollment());
         
-        btnCancelEnroll = new JButton("⏹ CANCELAR");
+        btnCancelEnroll = new JButton("CANCELAR");
         btnCancelEnroll.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnCancelEnroll.setBackground(new Color(149, 165, 166));
+        btnCancelEnroll.setBackground(new Color(231, 76, 60));
         btnCancelEnroll.setForeground(Color.WHITE);
         btnCancelEnroll.setFocusPainted(false);
-        btnCancelEnroll.setBorderPainted(false);
+        btnCancelEnroll.setPreferredSize(new Dimension(150, 35));
+        btnCancelEnroll.setMaximumSize(new Dimension(300, 35));
+        btnCancelEnroll.setAlignmentX(LEFT_ALIGNMENT);
         btnCancelEnroll.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnCancelEnroll.setEnabled(false);
+        btnCancelEnroll.setVisible(false);
         btnCancelEnroll.addActionListener(e -> cancelEnrollment());
         
-        buttonPanel.add(btnStartEnroll);
-        buttonPanel.add(btnCancelEnroll);
+        enrollPanel.add(lblUser);
+        enrollPanel.add(Box.createVerticalStrut(5));
+        enrollPanel.add(cmbUsers);
+        enrollPanel.add(Box.createVerticalStrut(12));
+        enrollPanel.add(lblFingerprintId);
+        enrollPanel.add(Box.createVerticalStrut(5));
+        enrollPanel.add(idPanel);
+        enrollPanel.add(Box.createVerticalStrut(15));
+        enrollPanel.add(btnStartEnroll);
+        enrollPanel.add(Box.createVerticalStrut(8));
+        enrollPanel.add(btnCancelEnroll);
         
-        // Agregar todo
-        panel.add(connectionSection);
-        panel.add(Box.createVerticalStrut(20));
-        panel.add(userSection);
-        panel.add(Box.createVerticalStrut(20));
-        panel.add(idSection);
-        panel.add(Box.createVerticalStrut(30));
-        panel.add(buttonPanel);
-        panel.add(Box.createVerticalGlue());
+        panel.add(connectionPanel, BorderLayout.NORTH);
+        panel.add(enrollPanel, BorderLayout.CENTER);
         
         return panel;
     }
@@ -288,103 +252,81 @@ public class EnrollPanel extends JPanel {
             BorderFactory.createEmptyBorder(20, 20, 20, 20)
         ));
         
-        // Header del proceso
-        JPanel headerPanel = new JPanel();
-        headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
-        headerPanel.setOpaque(false);
+        JLabel lblProgressTitle = new JLabel("Progreso del Enrolamiento");
+        lblProgressTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblProgressTitle.setForeground(new Color(44, 62, 80));
         
-        JLabel lblLogTitle = new JLabel("📋 Proceso de Enrolamiento");
-        lblLogTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        lblLogTitle.setForeground(new Color(44, 62, 80));
-        lblLogTitle.setAlignmentX(LEFT_ALIGNMENT);
+        JPanel statusPanel = new JPanel();
+        statusPanel.setLayout(new BoxLayout(statusPanel, BoxLayout.Y_AXIS));
+        statusPanel.setOpaque(false);
+        statusPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         
-        lblStepCount = new JLabel("Paso 0 de 4");
-        lblStepCount.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblStepCount.setForeground(new Color(127, 140, 141));
-        lblStepCount.setAlignmentX(LEFT_ALIGNMENT);
-        
-        lblCurrentStep = new JLabel("Esperando inicio del proceso...");
+        lblCurrentStep = new JLabel("Esperando inicio...");
         lblCurrentStep.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblCurrentStep.setForeground(new Color(52, 152, 219));
         lblCurrentStep.setAlignmentX(LEFT_ALIGNMENT);
         
-        headerPanel.add(lblLogTitle);
-        headerPanel.add(Box.createVerticalStrut(8));
-        headerPanel.add(lblStepCount);
-        headerPanel.add(Box.createVerticalStrut(3));
-        headerPanel.add(lblCurrentStep);
+        lblStepCount = new JLabel(" ");
+        lblStepCount.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblStepCount.setForeground(new Color(127, 140, 141));
+        lblStepCount.setAlignmentX(LEFT_ALIGNMENT);
         
-        // Área de log
+        statusPanel.add(lblCurrentStep);
+        statusPanel.add(Box.createVerticalStrut(5));
+        statusPanel.add(lblStepCount);
+        
+        progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(true);
+        progressBar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        progressBar.setForeground(new Color(52, 152, 219));
+        progressBar.setPreferredSize(new Dimension(0, 30));
+        progressBar.setValue(0);
+        
+        JLabel lblLogTitle = new JLabel("Registro de Actividad:");
+        lblLogTitle.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblLogTitle.setForeground(new Color(44, 62, 80));
+        
         txtLog = new JTextArea();
         txtLog.setEditable(false);
         txtLog.setFont(new Font("Consolas", Font.PLAIN, 12));
         txtLog.setBackground(new Color(250, 250, 250));
         txtLog.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        txtLog.setLineWrap(true);
-        txtLog.setWrapStyleWord(true);
-        txtLog.setText("═══════════════════════════════════════\n" +
-                       "  SISTEMA DE ENROLAMIENTO BIOMÉTRICO  \n" +
-                       "═══════════════════════════════════════\n\n" +
-                       "✓ Sistema inicializado correctamente\n" +
-                       "→ Conecte con Arduino para comenzar\n\n" +
-                       "PASOS DEL PROCESO:\n" +
-                       "1. Conectar sensor\n" +
-                       "2. Seleccionar usuario\n" +
-                       "3. Asignar ID de huella\n" +
-                       "4. Capturar primera huella\n" +
-                       "5. Capturar segunda huella\n" +
-                       "6. Validar y guardar\n");
         
         JScrollPane scrollPane = new JScrollPane(txtLog);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(200, 200, 200)));
         
-        // Progress bar
-        progressBar = new JProgressBar(0, 100);
-        progressBar.setStringPainted(true);
-        progressBar.setForeground(new Color(52, 152, 219));
-        progressBar.setValue(0);
-        progressBar.setString("Listo para comenzar");
+        JPanel contentPanel = new JPanel(new BorderLayout(10, 10));
+        contentPanel.setOpaque(false);
+        contentPanel.add(statusPanel, BorderLayout.NORTH);
+        contentPanel.add(progressBar, BorderLayout.CENTER);
         
-        panel.add(headerPanel, BorderLayout.NORTH);
-        panel.add(scrollPane, BorderLayout.CENTER);
-        panel.add(progressBar, BorderLayout.SOUTH);
+        panel.add(lblProgressTitle, BorderLayout.NORTH);
+        panel.add(contentPanel, BorderLayout.CENTER);
+        
+        JPanel logPanel = new JPanel(new BorderLayout(5, 5));
+        logPanel.setOpaque(false);
+        logPanel.add(lblLogTitle, BorderLayout.NORTH);
+        logPanel.add(scrollPane, BorderLayout.CENTER);
+        
+        panel.add(logPanel, BorderLayout.SOUTH);
         
         return panel;
     }
-    
-    private JPanel createSection(String title) {
-        JPanel section = new JPanel();
-        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
-        section.setOpaque(false);
-        section.setBorder(BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(new Color(200, 200, 200)),
-            title,
-            0, 0,
-            new Font("Segoe UI", Font.BOLD, 13),
-            new Color(52, 73, 94)
-        ));
-        section.setAlignmentX(LEFT_ALIGNMENT);
-        return section;
-    }
-    
-    // ============================================
-    // LÓGICA DE CONEXIÓN
-    // ============================================
     
     private void refreshPorts() {
         cmbPorts.removeAllItems();
         List<String> ports = SerialPortManager.getAvailablePorts();
         
         if (ports.isEmpty()) {
-            cmbPorts.addItem("Sin puertos disponibles");
+            cmbPorts.addItem("Sin puertos");
             btnConnect.setEnabled(false);
-            addLog("⚠ No se encontraron puertos COM");
+            addLog("⚠ No se encontraron puertos COM disponibles");
         } else {
             for (String port : ports) {
                 cmbPorts.addItem(port);
             }
             btnConnect.setEnabled(true);
-            addLog("✓ Puertos actualizados: " + ports.size() + " disponibles");
+            addLog("✓ Puertos detectados: " + String.join(", ", ports));
         }
     }
     
@@ -392,12 +334,13 @@ public class EnrollPanel extends JPanel {
         if (arduinoService.isConnected()) {
             arduinoService.disconnect();
             updateConnectionStatus(false);
-            addLog("⊗ Desconectado de Arduino");
+            addLog("✓ Desconectado del Arduino");
+            
         } else {
             String selectedPort = (String) cmbPorts.getSelectedItem();
-            if (selectedPort == null || selectedPort.equals("Sin puertos disponibles")) {
+            if (selectedPort == null || selectedPort.equals("Sin puertos")) {
                 JOptionPane.showMessageDialog(this,
-                    "Por favor seleccione un puerto COM válido",
+                    "Por favor seleccione un puerto COM valido",
                     "Error",
                     JOptionPane.ERROR_MESSAGE);
                 return;
@@ -420,10 +363,9 @@ public class EnrollPanel extends JPanel {
                         updateConnectionStatus(connected);
                         
                         if (connected) {
-                            addLog("✓ Conexión establecida con " + selectedPort);
-                            addLog("✓ Sensor biométrico responde correctamente");
+                            addLog("✓ Conexion establecida con " + selectedPort);
+                            addLog("✓ Sensor biometrico responde correctamente");
                             
-                            // Obtener info del sensor
                             int templateCount = arduinoService.getTemplateCount();
                             if (templateCount >= 0) {
                                 addLog("ℹ Huellas en sensor: " + templateCount);
@@ -434,10 +376,11 @@ public class EnrollPanel extends JPanel {
                             JOptionPane.showMessageDialog(EnrollPanel.this,
                                 "No se pudo conectar con Arduino.\n\n" +
                                 "Verifique:\n" +
-                                "• Arduino está conectado al puerto\n" +
-                                "• El firmware está cargado correctamente\n" +
-                                "• No hay otra aplicación usando el puerto",
-                                "Error de Conexión",
+                                "• Arduino esta conectado al puerto\n" +
+                                "• El firmware esta cargado correctamente\n" +
+                                "• No hay otra aplicacion usando el puerto\n" +
+                                "• Baudrate configurado en 115200",
+                                "Error de Conexion",
                                 JOptionPane.ERROR_MESSAGE);
                         }
                     } catch (Exception e) {
@@ -457,7 +400,7 @@ public class EnrollPanel extends JPanel {
     
     private void updateConnectionStatus(boolean connected) {
         if (connected) {
-            lblConnectionStatus.setText("● CONECTADO");
+            lblConnectionStatus.setText("CONECTADO");
             lblConnectionStatus.setForeground(new Color(46, 204, 113));
             btnConnect.setText("DESCONECTAR");
             btnConnect.setBackground(new Color(231, 76, 60));
@@ -465,20 +408,16 @@ public class EnrollPanel extends JPanel {
             cmbPorts.setEnabled(false);
             btnRefreshPorts.setEnabled(false);
         } else {
-            lblConnectionStatus.setText("● DESCONECTADO");
+            lblConnectionStatus.setText("DESCONECTADO");
             lblConnectionStatus.setForeground(new Color(231, 76, 60));
             btnConnect.setText("CONECTAR");
             btnConnect.setBackground(new Color(46, 204, 113));
             btnStartEnroll.setEnabled(false);
             cmbPorts.setEnabled(true);
             btnRefreshPorts.setEnabled(true);
-            lblSensorInfo.setText("Sensor: Esperando conexión...");
+            lblSensorInfo.setText("Sensor: Esperando conexion...");
         }
     }
-    
-    // ============================================
-    // LÓGICA DE USUARIOS
-    // ============================================
     
     private void loadUsers() {
         cmbUsers.removeAllItems();
@@ -537,11 +476,11 @@ public class EnrollPanel extends JPanel {
             
             if (rs.next()) {
                 nextAvailableId = rs.getInt("next_id");
-                logger.info("Próximo ID disponible: {}", nextAvailableId);
+                logger.info("Proximo ID disponible: {}", nextAvailableId);
             }
             
         } catch (Exception e) {
-            logger.error("Error al calcular próximo ID", e);
+            logger.error("Error al calcular proximo ID", e);
             nextAvailableId = 1;
         }
     }
@@ -551,35 +490,23 @@ public class EnrollPanel extends JPanel {
         addLog("✓ ID auto-asignado: " + nextAvailableId);
     }
     
-    // ============================================
-    // PROCESO DE ENROLAMIENTO
-    // ============================================
-    
     private void startEnrollment() {
-        if (enrolling) {
-            JOptionPane.showMessageDialog(this,
-                "Ya hay un proceso de enrolamiento en curso",
-                "Advertencia",
-                JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        // Validaciones
         UserItem selectedUser = (UserItem) cmbUsers.getSelectedItem();
         if (selectedUser == null) {
             JOptionPane.showMessageDialog(this,
                 "Por favor seleccione un usuario",
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
+                "Usuario Requerido",
+                JOptionPane.WARNING_MESSAGE);
             return;
         }
         
         String fingerprintIdStr = txtFingerprintId.getText().trim();
         if (fingerprintIdStr.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "Por favor ingrese un ID de huella",
-                "Error",
-                JOptionPane.ERROR_MESSAGE);
+                "Por favor ingrese el ID de huella",
+                "ID Requerido",
+                JOptionPane.WARNING_MESSAGE);
+            txtFingerprintId.requestFocus();
             return;
         }
         
@@ -591,181 +518,150 @@ public class EnrollPanel extends JPanel {
             }
         } catch (NumberFormatException e) {
             JOptionPane.showMessageDialog(this,
-                "El ID debe ser un número entre 1 y 255",
-                "Error",
+                "El ID debe ser un numero entre 1 y 255",
+                "ID Invalido",
                 JOptionPane.ERROR_MESSAGE);
+            txtFingerprintId.requestFocus();
             return;
         }
         
-        // Confirmar
-        int confirm = JOptionPane.showConfirmDialog(this,
-            "¿Iniciar enrolamiento?\n\n" +
-            "Usuario: " + selectedUser.toString() + "\n" +
-            "ID Huella: " + fingerprintId + "\n\n" +
-            "El proceso tomará aproximadamente 30 segundos.",
-            "Confirmar Enrolamiento",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.QUESTION_MESSAGE);
-        
-        if (confirm != JOptionPane.YES_OPTION) {
+        if (!arduinoService.isConnected()) {
+            JOptionPane.showMessageDialog(this,
+                "Debe conectar el Arduino primero",
+                "No Conectado",
+                JOptionPane.WARNING_MESSAGE);
             return;
         }
         
-        // Iniciar proceso
         enrolling = true;
-        setEnrollingState(true);
-        
-        txtLog.setText("");
-        addLog("═══════════════════════════════════════");
-        addLog("  INICIANDO PROCESO DE ENROLAMIENTO");
-        addLog("═══════════════════════════════════════");
-        addLog("");
-        addLog("Usuario: " + selectedUser.toString());
-        addLog("ID Huella: " + fingerprintId);
-        addLog("");
+        btnStartEnroll.setEnabled(false);
+        btnCancelEnroll.setVisible(true);
+        cmbUsers.setEnabled(false);
+        txtFingerprintId.setEnabled(false);
+        btnAutoAssignId.setEnabled(false);
         
         progressBar.setValue(0);
-        progressBar.setIndeterminate(true);
-        progressBar.setString("Preparando sensor...");
+        lblCurrentStep.setText("Iniciando enrolamiento...");
+        lblStepCount.setText("Preparando sensor");
         
-        lblStepCount.setText("Paso 1 de 4");
-        lblCurrentStep.setText("Preparando sensor...");
+        addLog("═══════════════════════════════════════");
+        addLog("INICIANDO ENROLAMIENTO");
+        addLog("Usuario: " + selectedUser.toString());
+        addLog("ID Huella: " + fingerprintId);
+        addLog("═══════════════════════════════════════");
         
-        // Ejecutar enrolamiento
+        final int finalFingerprintId = fingerprintId;
+        final int finalUserId = selectedUser.getId();
+        
         arduinoService.startEnroll(fingerprintId, new ArduinoCommService.EnrollCallback() {
             @Override
             public void onProgress(String message) {
-                SwingUtilities.invokeLater(() -> {
-                    addLog("▶ " + message);
-                    lblCurrentStep.setText(message);
-                    
-                    // Actualizar progreso
-                    if (message.contains("Coloque el dedo")) {
-                        progressBar.setIndeterminate(false);
-                        progressBar.setValue(25);
-                        progressBar.setString("Paso 2/4: Primera captura");
-                        lblStepCount.setText("Paso 2 de 4");
-                    } else if (message.contains("Retire el dedo")) {
-                        progressBar.setValue(50);
-                        progressBar.setString("Paso 3/4: Validando...");
-                        lblStepCount.setText("Paso 3 de 4");
-                    } else if (message.contains("mismo dedo nuevamente")) {
-                        progressBar.setValue(75);
-                        progressBar.setString("Paso 4/4: Segunda captura");
-                        lblStepCount.setText("Paso 4 de 4");
-                    }
-                });
+                addLog("• " + message);
+                lblCurrentStep.setText(message);
+                
+                if (message.contains("Coloque el dedo")) {
+                    progressBar.setValue(20);
+                    lblStepCount.setText("Paso 1/5: Primera captura");
+                } else if (message.contains("capturada") && progressBar.getValue() < 40) {
+                    progressBar.setValue(40);
+                    lblStepCount.setText("Paso 2/5: Captura exitosa");
+                } else if (message.contains("Retire")) {
+                    progressBar.setValue(50);
+                    lblStepCount.setText("Paso 3/5: Retire el dedo");
+                } else if (message.contains("nuevamente")) {
+                    progressBar.setValue(60);
+                    lblStepCount.setText("Paso 4/5: Segunda captura");
+                } else if (message.contains("modelo")) {
+                    progressBar.setValue(80);
+                    lblStepCount.setText("Paso 5/5: Creando modelo");
+                } else if (message.contains("Guardando")) {
+                    progressBar.setValue(90);
+                    lblStepCount.setText("Finalizando...");
+                }
             }
             
             @Override
-            public void onSuccess(int enrolledId) {
-                SwingUtilities.invokeLater(() -> {
-                    progressBar.setIndeterminate(false);
-                    progressBar.setValue(100);
-                    progressBar.setString("✓ Completado exitosamente");
-                    lblCurrentStep.setText("✓ Enrolamiento completado");
-                    lblStepCount.setText("Paso 4 de 4");
-                    
-                    addLog("");
-                    addLog("═══════════════════════════════════════");
-                    addLog("  ✓ ENROLAMIENTO EXITOSO");
-                    addLog("═══════════════════════════════════════");
-                    addLog("");
-                    
-                    // Actualizar BD
-                    updateUserFingerprint(selectedUser.getId(), fingerprintId);
-                    
-                    enrolling = false;
-                    setEnrollingState(false);
-                    
-                    // Notificar éxito
-                    JOptionPane.showMessageDialog(EnrollPanel.this,
-                        "Huella registrada exitosamente!\n\n" +
-                        "Usuario: " + selectedUser.toString() + "\n" +
-                        "ID Huella: " + fingerprintId,
-                        "Éxito",
-                        JOptionPane.INFORMATION_MESSAGE);
-                    
-                    // Recargar datos
-                    loadUsers();
-                    calculateNextAvailableId();
-                    txtFingerprintId.setText("");
-                });
+            public void onSuccess(int id) {
+                progressBar.setValue(100);
+                lblCurrentStep.setText("¡Enrolamiento exitoso!");
+                lblStepCount.setText("Completado");
+                addLog("✓ ENROLAMIENTO COMPLETADO EXITOSAMENTE");
+                addLog("✓ ID de huella: " + id);
+                
+                updateUserFingerprint(finalUserId, id);
+                
+                JOptionPane.showMessageDialog(EnrollPanel.this,
+                    "Huella enrolada exitosamente!\n\n" +
+                    "Usuario: " + selectedUser.toString() + "\n" +
+                    "ID Huella: " + id,
+                    "Exito",
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+                resetEnrollmentUI();
+                loadUsers();
+                calculateNextAvailableId();
+                
+                int templateCount = arduinoService.getTemplateCount();
+                if (templateCount >= 0) {
+                    lblSensorInfo.setText("Sensor: " + templateCount + " huellas registradas");
+                }
             }
             
             @Override
             public void onError(String error) {
-                SwingUtilities.invokeLater(() -> {
-                    progressBar.setIndeterminate(false);
-                    progressBar.setValue(0);
-                    progressBar.setString("✗ Error en el proceso");
-                    lblCurrentStep.setText("✗ Error: " + error);
-                    
-                    addLog("");
-                    addLog("═══════════════════════════════════════");
-                    addLog("  ✗ ERROR EN ENROLAMIENTO");
-                    addLog("═══════════════════════════════════════");
-                    addLog("Error: " + error);
-                    addLog("");
-                    
-                    enrolling = false;
-                    setEnrollingState(false);
-                    
-                    JOptionPane.showMessageDialog(EnrollPanel.this,
-                        "Error durante el enrolamiento:\n\n" + error +
-                        "\n\nIntente nuevamente.",
-                        "Error",
-                        JOptionPane.ERROR_MESSAGE);
-                });
+                progressBar.setValue(0);
+                lblCurrentStep.setText("Error en enrolamiento");
+                lblStepCount.setText("Proceso fallido");
+                addLog("✗ ERROR: " + error);
+                
+                JOptionPane.showMessageDialog(EnrollPanel.this,
+                    "Error en el enrolamiento:\n" + error + "\n\n" +
+                    "Intente nuevamente.",
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+                
+                resetEnrollmentUI();
             }
         });
     }
     
     private void cancelEnrollment() {
-        if (!enrolling) return;
-        
-        int confirm = JOptionPane.showConfirmDialog(this,
-            "¿Está seguro de cancelar el proceso?\n\n" +
-            "El enrolamiento en curso se perderá.",
-            "Confirmar Cancelación",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE);
-        
-        if (confirm == JOptionPane.YES_OPTION) {
-            addLog("");
-            addLog("⊗ Proceso cancelado por el usuario");
-            enrolling = false;
-            setEnrollingState(false);
-            
-            progressBar.setIndeterminate(false);
-            progressBar.setValue(0);
-            progressBar.setString("Cancelado");
-            lblCurrentStep.setText("Proceso cancelado");
-        }
+        enrolling = false;
+        resetEnrollmentUI();
+        addLog("✗ Enrolamiento cancelado por el usuario");
+        lblCurrentStep.setText("Enrolamiento cancelado");
+        lblStepCount.setText(" ");
+        progressBar.setValue(0);
     }
     
-    private void setEnrollingState(boolean isEnrolling) {
-        btnStartEnroll.setEnabled(!isEnrolling);
-        btnCancelEnroll.setEnabled(isEnrolling);
-        btnConnect.setEnabled(!isEnrolling);
-        cmbUsers.setEnabled(!isEnrolling);
-        txtFingerprintId.setEnabled(!isEnrolling);
-        btnAutoAssignId.setEnabled(!isEnrolling);
+    private void resetEnrollmentUI() {
+        enrolling = false;
+        btnStartEnroll.setEnabled(true);
+        btnCancelEnroll.setVisible(false);
+        cmbUsers.setEnabled(true);
+        txtFingerprintId.setEnabled(true);
+        btnAutoAssignId.setEnabled(true);
+        lblCurrentStep.setText("Esperando inicio...");
+        lblStepCount.setText(" ");
     }
     
     private void updateUserFingerprint(int userId, int fingerprintId) {
-        String sql = "UPDATE usuarios SET fingerprint_id = ? WHERE id_usuario = ?";
+        String sql = "UPDATE usuarios SET fingerprint_id = ?, fecha_modificacion = CURRENT_TIMESTAMP " +
+                     "WHERE id_usuario = ?";
         
         try (Connection conn = DatabaseConfig.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setInt(1, fingerprintId);
             pstmt.setInt(2, userId);
+            
             int updated = pstmt.executeUpdate();
             
             if (updated > 0) {
                 addLog("✓ Base de datos actualizada correctamente");
-                logger.info("Fingerprint ID {} asignado al usuario {}", fingerprintId, userId);
+                logger.info("Usuario {} actualizado con fingerprint ID {}", userId, fingerprintId);
+            } else {
+                addLog("⚠ No se pudo actualizar la base de datos");
             }
             
         } catch (Exception e) {
@@ -776,25 +672,18 @@ public class EnrollPanel extends JPanel {
     
     private void addLog(String message) {
         SwingUtilities.invokeLater(() -> {
-            txtLog.append(message + "\n");
+            String timestamp = java.time.LocalTime.now().format(
+                java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss"));
+            txtLog.append("[" + timestamp + "] " + message + "\n");
             txtLog.setCaretPosition(txtLog.getDocument().getLength());
         });
     }
     
-    // ============================================
-    // CLEANUP
-    // ============================================
-    
     public void cleanup() {
         if (arduinoService != null && arduinoService.isConnected()) {
             arduinoService.disconnect();
-            logger.info("Recursos de EnrollPanel liberados");
         }
     }
-    
-    // ============================================
-    // CLASE AUXILIAR
-    // ============================================
     
     private static class UserItem {
         private final int id;
@@ -821,11 +710,8 @@ public class EnrollPanel extends JPanel {
         
         @Override
         public String toString() {
-            String name = apellidos + ", " + nombres + " (" + dni + ")";
-            if (fingerprintId != null) {
-                return name + " [Huella: " + fingerprintId + "]";
-            }
-            return name + " [Sin huella]";
+            String status = fingerprintId != null ? " [Huella: " + fingerprintId + "]" : "";
+            return nombres + " " + apellidos + " (" + dni + ")" + status;
         }
     }
 }

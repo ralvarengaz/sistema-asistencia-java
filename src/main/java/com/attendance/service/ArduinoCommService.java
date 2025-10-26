@@ -1,388 +1,539 @@
 package com.attendance.service;
 
-import com.attendance.config.DatabaseConfig;
 import com.attendance.util.SerialPortManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Servicio de comunicación con Arduino
- * Baudrate: 57600 (configurado para sensor DY50)
- * 
- * @author Sistema Biométrico
- * @version 2.0 - Optimizado
- */
+import javax.swing.*;
+import java.util.concurrent.CompletableFuture;
+
 public class ArduinoCommService {
-    
     private static final Logger logger = LoggerFactory.getLogger(ArduinoCommService.class);
+    private static final int BAUD_RATE = 115200;
+    private static final int CONNECTION_TIMEOUT = 5000;
+    private static final int COMMAND_TIMEOUT = 3000;
     
-    // BAUDRATE CORRECTO PARA SENSOR DY50
-    private static final int DEFAULT_BAUDRATE = 57600;
-    
-    private SerialPortManager serialManager;
-    private String currentPort;
-    private int baudRate;
+    private SerialPortManager serialPortManager;
+    private boolean isConnected = false;
     
     public ArduinoCommService() {
-        this.serialManager = new SerialPortManager();
-        
-        // Obtener baudrate desde configuración
-        String baudRateStr = DatabaseConfig.getProperty("arduino.baudRate", String.valueOf(DEFAULT_BAUDRATE));
-        try {
-            this.baudRate = Integer.parseInt(baudRateStr);
-            logger.info("Baudrate configurado: {} baudios", this.baudRate);
-        } catch (NumberFormatException e) {
-            logger.warn("Baudrate inválido en configuración, usando default: {}", DEFAULT_BAUDRATE);
-            this.baudRate = DEFAULT_BAUDRATE;
-        }
+        this.serialPortManager = new SerialPortManager();
+        logger.info("Baudrate configurado: {} baudios", BAUD_RATE);
     }
     
-    /**
-     * Conecta con Arduino en el puerto especificado
-     */
     public boolean connect(String portName) {
-        logger.info("═══════════════════════════════════════");
-        logger.info("  Intentando conectar con Arduino");
-        logger.info("  Puerto: {}", portName);
-        logger.info("  Baudrate: {} baudios", baudRate);
-        logger.info("═══════════════════════════════════════");
-        
-        boolean connected = serialManager.connect(portName, baudRate);
-        
-        if (connected) {
-            currentPort = portName;
+        try {
+            logger.info("═══════════════════════════════════════");
+            logger.info("  Conectando con Arduino");
+            logger.info("  Puerto: {}", portName);
+            logger.info("  Baudrate: {} baudios", BAUD_RATE);
+            logger.info("═══════════════════════════════════════");
             
-            // Verificar comunicación con PING
-            logger.info("Verificando comunicación con sensor...");
-            if (ping()) {
-                logger.info("✓ Comunicación establecida correctamente");
-                logger.info("✓ Sensor responde a comandos");
-                
-                // Obtener info del sensor
-                getSensorInfo();
-                
-                return true;
-            } else {
-                logger.warn("⚠ Arduino conectado pero no responde a PING");
-                logger.warn("⚠ Verifique que el firmware esté cargado correctamente");
-                serialManager.disconnect();
+            if (!serialPortManager.connect(portName, BAUD_RATE)) {
+                logger.error("✗ No se pudo abrir el puerto {}", portName);
                 return false;
             }
-        } else {
-            logger.error("✗ No se pudo conectar con Arduino en {}", portName);
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Desconecta del Arduino
-     */
-    public void disconnect() {
-        serialManager.disconnect();
-        currentPort = null;
-        logger.info("⊗ Desconectado de Arduino");
-    }
-    
-    /**
-     * Verifica si está conectado
-     */
-    public boolean isConnected() {
-        return serialManager.isConnected();
-    }
-    
-    /**
-     * Obtiene el puerto actual
-     */
-    public String getCurrentPort() {
-        return currentPort;
-    }
-    
-    /**
-     * Ping para verificar comunicación
-     */
-    public boolean ping() {
-        serialManager.clearBuffer();
-        serialManager.sendCommand("PING");
-        
-        String response = serialManager.readLine(2000);
-        
-        if (response != null && response.contains("PONG")) {
-            logger.debug("✓ PING exitoso");
-            return true;
-        }
-        
-        logger.warn("⚠ No se recibió respuesta PONG");
-        return false;
-    }
-    
-    /**
-     * Obtiene información del sensor
-     */
-    private void getSensorInfo() {
-        serialManager.clearBuffer();
-        serialManager.sendCommand("INFO");
-        
-        // Esperar respuestas múltiples
-        long startTime = System.currentTimeMillis();
-        StringBuilder info = new StringBuilder();
-        
-        while (System.currentTimeMillis() - startTime < 1000) {
-            String line = serialManager.readLine(100);
-            if (line != null && line.startsWith("INFO:")) {
-                info.append(line).append("\n");
-                logger.debug(line);
-            }
-        }
-        
-        if (info.length() > 0) {
-            logger.info("Información del sensor recibida");
-        }
-    }
-    
-    /**
-     * Inicia proceso de enrolamiento de huella
-     * 
-     * @param fingerprintId ID de la huella (1-255)
-     * @param callback Callback para recibir actualizaciones
-     * @return true si el proceso inició correctamente
-     */
-    public boolean startEnroll(int fingerprintId, EnrollCallback callback) {
-        if (!isConnected()) {
-            callback.onError("No hay conexión con Arduino");
-            return false;
-        }
-        
-        if (fingerprintId < 1 || fingerprintId > 255) {
-            callback.onError("ID de huella debe estar entre 1 y 255");
-            return false;
-        }
-        
-        logger.info("═══════════════════════════════════════");
-        logger.info("  Iniciando enrolamiento");
-        logger.info("  ID: {}", fingerprintId);
-        logger.info("═══════════════════════════════════════");
-        
-        // Limpiar buffer
-        serialManager.clearBuffer();
-        
-        // Enviar comando de enrolamiento
-        serialManager.sendCommand("ENROLL:" + fingerprintId);
-        
-        // Escuchar respuestas en hilo separado
-        new Thread(() -> listenEnrollProcess(callback)).start();
-        
-        return true;
-    }
-    
-    /**
-     * Escucha el proceso de enrolamiento
-     */
-    private void listenEnrollProcess(EnrollCallback callback) {
-        boolean finished = false;
-        long timeout = 30000; // 30 segundos
-        long startTime = System.currentTimeMillis();
-        
-        while (!finished && (System.currentTimeMillis() - startTime < timeout)) {
-            String response = serialManager.readLine(100);
             
-            if (response != null) {
-                logger.debug("← {}", response);
-                
-                if (response.startsWith("STATUS:ENROLL_START:")) {
-                    String id = response.split(":")[2];
-                    callback.onProgress("Iniciando enrolamiento para ID " + id);
-                    
-                } else if (response.startsWith("STATUS:ENROLL_STEP:")) {
-                    String message = response.substring("STATUS:ENROLL_STEP:".length());
-                    callback.onProgress(message);
-                    
-                } else if (response.startsWith("STATUS:ENROLL_SUCCESS:")) {
-                    String id = response.split(":")[2];
-                    logger.info("✓ Enrolamiento exitoso - ID: {}", id);
-                    callback.onSuccess(Integer.parseInt(id));
-                    finished = true;
-                    
-                } else if (response.startsWith("ERROR:")) {
-                    String[] parts = response.split(":", 3);
-                    String errorCode = parts.length > 1 ? parts[1] : "UNKNOWN";
-                    String errorMessage = parts.length > 2 ? parts[2] : "Error desconocido";
-                    logger.error("✗ Error en enrolamiento: {} - {}", errorCode, errorMessage);
-                    callback.onError(errorMessage);
-                    finished = true;
+            logger.info("Puerto abierto correctamente");
+            Thread.sleep(2500);
+            
+            serialPortManager.clearBuffer();
+            Thread.sleep(300);
+            
+            logger.info("Verificando comunicación...");
+            
+            if (verifyConnection()) {
+                isConnected = true;
+                logger.info("✓ Arduino conectado y verificado");
+                return true;
+            } else {
+                logger.warn("⚠ Arduino no responde correctamente");
+                serialPortManager.disconnect();
+                return false;
+            }
+            
+        } catch (Exception e) {
+            logger.error("Error al conectar: {}", e.getMessage(), e);
+            if (serialPortManager != null) {
+                serialPortManager.disconnect();
+            }
+            return false;
+        }
+    }
+    
+    public CompletableFuture<Boolean> connectAsync(String portName) {
+        return CompletableFuture.supplyAsync(() -> connect(portName));
+    }
+    
+    private boolean verifyConnection() {
+        try {
+            serialPortManager.clearBuffer();
+            Thread.sleep(100);
+            
+            String response = serialPortManager.sendCommand("PING", COMMAND_TIMEOUT);
+            
+            if (response != null && response.contains("READY")) {
+                logger.debug("✓ Respuesta READY recibida");
+                return true;
+            } else {
+                logger.warn("✗ No se recibió READY");
+                if (response != null) {
+                    logger.debug("Respuesta: {}", response);
                 }
+                return false;
             }
             
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-        
-        if (!finished) {
-            logger.error("✗ Timeout: El proceso tardó demasiado");
-            callback.onError("Timeout: El proceso tardó demasiado");
-        }
-    }
-    
-    /**
-     * Verifica una huella
-     */
-    public void startVerify(VerifyCallback callback) {
-        if (!isConnected()) {
-            callback.onError("No hay conexión con Arduino");
-            return;
-        }
-        
-        logger.info("Iniciando verificación de huella...");
-        
-        serialManager.clearBuffer();
-        serialManager.sendCommand("VERIFY");
-        
-        new Thread(() -> listenVerifyProcess(callback)).start();
-    }
-    
-    /**
-     * Escucha el proceso de verificación
-     */
-    private void listenVerifyProcess(VerifyCallback callback) {
-        boolean finished = false;
-        long timeout = 15000; // 15 segundos
-        long startTime = System.currentTimeMillis();
-        
-        while (!finished && (System.currentTimeMillis() - startTime < timeout)) {
-            String response = serialManager.readLine(100);
-            
-            if (response != null) {
-                logger.debug("← {}", response);
-                
-                if (response.startsWith("STATUS:VERIFY_START")) {
-                    callback.onWaiting("Esperando huella...");
-                    
-                } else if (response.startsWith("VERIFY_SUCCESS:")) {
-                    String[] parts = response.split(":");
-                    if (parts.length >= 3) {
-                        int fingerprintId = Integer.parseInt(parts[1]);
-                        int confidence = Integer.parseInt(parts[2]);
-                        logger.info("✓ Huella verificada - ID: {}, Confianza: {}", fingerprintId, confidence);
-                        callback.onSuccess(fingerprintId, confidence);
-                        finished = true;
-                    }
-                    
-                } else if (response.startsWith("ERROR:NOT_FOUND")) {
-                    logger.warn("⚠ Huella no encontrada en el sistema");
-                    callback.onNotFound();
-                    finished = true;
-                    
-                } else if (response.startsWith("ERROR:")) {
-                    String[] parts = response.split(":", 3);
-                    String errorMessage = parts.length > 2 ? parts[2] : "Error desconocido";
-                    logger.error("✗ Error en verificación: {}", errorMessage);
-                    callback.onError(errorMessage);
-                    finished = true;
-                }
-            }
-            
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-        
-        if (!finished) {
-            logger.error("✗ Timeout en verificación");
-            callback.onError("Timeout: El proceso tardó demasiado");
-        }
-    }
-    
-    /**
-     * Elimina una huella del sensor
-     */
-    public boolean deleteFingerprint(int fingerprintId) {
-        if (!isConnected()) {
-            logger.error("✗ No hay conexión con Arduino");
+        } catch (Exception e) {
+            logger.error("Error verificando conexión: {}", e.getMessage());
             return false;
         }
-        
-        logger.info("Eliminando huella ID: {}", fingerprintId);
-        
-        serialManager.clearBuffer();
-        serialManager.sendCommand("DELETE:" + fingerprintId);
-        
-        String response = serialManager.readLine(3000);
-        
-        boolean success = response != null && response.contains("DELETE_SUCCESS");
-        
-        if (success) {
-            logger.info("✓ Huella {} eliminada del sensor", fingerprintId);
-        } else {
-            logger.warn("⚠ No se pudo eliminar huella {}", fingerprintId);
-        }
-        
-        return success;
     }
     
-    /**
-     * Obtiene la cantidad de huellas almacenadas
-     */
     public int getTemplateCount() {
         if (!isConnected()) {
-            logger.warn("⚠ No hay conexión con Arduino");
-            return -1;
+            logger.error("No hay conexión con Arduino");
+            return 0;
         }
         
-        serialManager.clearBuffer();
-        serialManager.sendCommand("COUNT");
-        
-        String response = serialManager.readLine(2000);
-        
-        if (response != null && response.startsWith("STATUS:TEMPLATES:")) {
+        try {
+            serialPortManager.clearBuffer();
+            Thread.sleep(50);
+            
+            String response = serialPortManager.sendCommand("COUNT", COMMAND_TIMEOUT);
+            
+            if (response != null && response.contains("COUNT:")) {
+                String[] lines = response.split("\n");
+                for (String line : lines) {
+                    if (line.contains("COUNT:")) {
+                        String countStr = line.substring(line.indexOf("COUNT:") + 6).trim();
+                        return Integer.parseInt(countStr.split("\\s+")[0]);
+                    }
+                }
+            }
+            return 0;
+            
+        } catch (Exception e) {
+            logger.error("Error obteniendo template count: {}", e.getMessage());
+            return 0;
+        }
+    }
+    
+    public void disconnect() {
+        if (serialPortManager != null) {
+            serialPortManager.disconnect();
+        }
+        isConnected = false;
+        logger.info("Desconectado del Arduino");
+    }
+    
+    public boolean isConnected() {
+        return isConnected && serialPortManager != null && serialPortManager.isConnected();
+    }
+    
+    public void startEnroll(int id, EnrollCallback callback) {
+        enrollFingerprint(id, callback).thenAccept(result -> {
+            if (!result.success) {
+                SwingUtilities.invokeLater(() -> callback.onError(result.message));
+            }
+        });
+    }
+    
+    public CompletableFuture<EnrollResult> enrollFingerprint(int id, EnrollCallback callback) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isConnected()) {
+                logger.error("No hay conexión con Arduino");
+                return new EnrollResult(false, "No hay conexión con Arduino");
+            }
+            
             try {
-                int count = Integer.parseInt(response.split(":")[2]);
-                logger.info("ℹ Huellas en sensor: {}", count);
-                return count;
+                logger.info("Iniciando enrollamiento para ID: {}", id);
+                
+                serialPortManager.clearBuffer();
+                Thread.sleep(100);
+                
+                boolean sent = serialPortManager.sendCommandNoResponse("ENROLL:" + id);
+                
+                if (!sent) {
+                    return new EnrollResult(false, "Error al enviar comando");
+                }
+                
+                Thread.sleep(200);
+                
+                return listenEnrollProcess(callback);
+                
             } catch (Exception e) {
-                logger.error("✗ Error parseando cantidad de templates", e);
+                logger.error("Error en enrollamiento: {}", e.getMessage(), e);
+                return new EnrollResult(false, "Error: " + e.getMessage());
             }
-        }
-        
-        return -1;
+        });
     }
     
-    /**
-     * Ejecuta un test del sensor
-     */
-    public void runTest() {
-        if (!isConnected()) {
-            logger.warn("⚠ No hay conexión con Arduino");
-            return;
-        }
-        
-        logger.info("Ejecutando test del sensor...");
-        serialManager.clearBuffer();
-        serialManager.sendCommand("TEST");
-        
-        // Esperar respuestas del test
-        long startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < 5000) {
-            String line = serialManager.readLine(100);
-            if (line != null) {
-                logger.info("TEST: {}", line);
+    private EnrollResult listenEnrollProcess(EnrollCallback callback) {
+        try {
+            long startTime = System.currentTimeMillis();
+            long timeout = 60000;
+            
+            while (System.currentTimeMillis() - startTime < timeout) {
+                String message = serialPortManager.readLine(500);
+                
+                if (message == null || message.isEmpty()) {
+                    continue;
+                }
+                
+                logger.debug("Enroll msg: {}", message);
+                
+                if (message.contains("ENROLL:START:")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Proceso iniciado"));
+                    
+                } else if (message.contains("PLACE_FINGER")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Coloque el dedo en el sensor"));
+                    
+                } else if (message.contains("CAPTURED")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Imagen capturada"));
+                    
+                } else if (message.contains("REMOVE_FINGER")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Retire el dedo"));
+                    
+                } else if (message.contains("PLACE_AGAIN")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Coloque el mismo dedo nuevamente"));
+                    
+                } else if (message.contains("CREATING_MODEL")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Creando modelo de huella"));
+                    
+                } else if (message.contains("SAVING")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Guardando huella"));
+                    
+                } else if (message.contains("SUCCESS")) {
+                    SwingUtilities.invokeLater(() -> callback.onProgress("Huella guardada exitosamente"));
+                    
+                } else if (message.contains("ENROLL:OK:")) {
+                    String[] parts = message.split(":");
+                    if (parts.length >= 3) {
+                        int enrolledId = Integer.parseInt(parts[2].trim());
+                        SwingUtilities.invokeLater(() -> callback.onSuccess(enrolledId));
+                        logger.info("✓ Enrollamiento exitoso - ID: {}", enrolledId);
+                        return new EnrollResult(true, "Enrollamiento exitoso", enrolledId);
+                    }
+                    
+                } else if (message.contains("ENROLL:FAIL:")) {
+                    String[] parts = message.split(":", 3);
+                    String error = parts.length >= 3 ? parts[2] : "Error desconocido";
+                    SwingUtilities.invokeLater(() -> callback.onError(error));
+                    logger.error("✗ Error en enrollamiento: {}", error);
+                    return new EnrollResult(false, error);
+                    
+                } else if (message.contains("TIMEOUT")) {
+                    SwingUtilities.invokeLater(() -> callback.onError("Tiempo de espera agotado"));
+                    return new EnrollResult(false, "Timeout");
+                    
+                } else if (message.contains("NOT_MATCH")) {
+                    SwingUtilities.invokeLater(() -> callback.onError("Las huellas no coinciden"));
+                    return new EnrollResult(false, "No coinciden");
+                }
             }
+            
+            SwingUtilities.invokeLater(() -> callback.onError("Timeout general del proceso"));
+            return new EnrollResult(false, "Timeout");
+            
+        } catch (Exception e) {
+            logger.error("Error escuchando enrollamiento: {}", e.getMessage());
+            SwingUtilities.invokeLater(() -> callback.onError("Error: " + e.getMessage()));
+            return new EnrollResult(false, "Error: " + e.getMessage());
         }
     }
     
-    // ============================================
-    // INTERFACES DE CALLBACKS
-    // ============================================
+    public void startVerify(VerifyCallback callback) {
+        CompletableFuture.runAsync(() -> {
+            if (!isConnected()) {
+                SwingUtilities.invokeLater(() -> callback.onError("No hay conexión con Arduino"));
+                return;
+            }
+            
+            try {
+                logger.info("Iniciando verificación de huella");
+                
+                serialPortManager.clearBuffer();
+                Thread.sleep(100);
+                
+                boolean sent = serialPortManager.sendCommandNoResponse("VERIFY");
+                
+                if (!sent) {
+                    SwingUtilities.invokeLater(() -> callback.onError("Error al enviar comando"));
+                    return;
+                }
+                
+                Thread.sleep(200);
+                
+                SwingUtilities.invokeLater(() -> callback.onWaiting("Esperando huella..."));
+                
+                listenVerifyProcess(callback);
+                
+            } catch (Exception e) {
+                logger.error("Error en verificación: {}", e.getMessage(), e);
+                SwingUtilities.invokeLater(() -> callback.onError("Error: " + e.getMessage()));
+            }
+        });
+    }
+    
+    private void listenVerifyProcess(VerifyCallback callback) {
+        try {
+            long startTime = System.currentTimeMillis();
+            long timeout = 30000;
+            
+            while (System.currentTimeMillis() - startTime < timeout) {
+                String message = serialPortManager.readLine(500);
+                
+                if (message == null || message.isEmpty()) {
+                    continue;
+                }
+                
+                logger.debug("Verify msg: {}", message);
+                
+                if (message.contains("PLACE_FINGER")) {
+                    SwingUtilities.invokeLater(() -> callback.onWaiting("Coloque el dedo en el sensor"));
+                    
+                } else if (message.contains("CAPTURED")) {
+                    SwingUtilities.invokeLater(() -> callback.onWaiting("Imagen capturada, verificando..."));
+                    
+                } else if (message.contains("FOUND:")) {
+                    SwingUtilities.invokeLater(() -> callback.onWaiting("Huella encontrada, validando..."));
+                    
+                } else if (message.contains("VERIFY:OK:")) {
+                    String[] parts = message.split(":");
+                    if (parts.length >= 4) {
+                        int id = Integer.parseInt(parts[2].trim());
+                        int confidence = Integer.parseInt(parts[3].trim());
+                        SwingUtilities.invokeLater(() -> callback.onSuccess(id, confidence));
+                        logger.info("✓ Verificación exitosa - ID: {}, Confianza: {}", id, confidence);
+                        return;
+                    }
+                    
+                } else if (message.contains("VERIFY:FAIL:NOT_FOUND")) {
+                    SwingUtilities.invokeLater(() -> callback.onNotFound());
+                    logger.warn("✗ Huella no registrada");
+                    return;
+                    
+                } else if (message.contains("VERIFY:FAIL:") || message.contains("ERROR")) {
+                    String[] parts = message.split(":", 3);
+                    String error = parts.length >= 3 ? parts[2] : "Error desconocido";
+                    SwingUtilities.invokeLater(() -> callback.onError(error));
+                    return;
+                    
+                } else if (message.contains("TIMEOUT")) {
+                    SwingUtilities.invokeLater(() -> callback.onError("Tiempo de espera agotado"));
+                    return;
+                }
+            }
+            
+            SwingUtilities.invokeLater(() -> callback.onError("Timeout: No se colocó el dedo"));
+            
+        } catch (Exception e) {
+            logger.error("Error escuchando verificación: {}", e.getMessage());
+            SwingUtilities.invokeLater(() -> callback.onError("Error: " + e.getMessage()));
+        }
+    }
+    
+    public CompletableFuture<VerifyResult> verifyFingerprint() {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isConnected()) {
+                logger.error("No hay conexión con Arduino");
+                return new VerifyResult(false, -1, 0, "No hay conexión");
+            }
+            
+            try {
+                logger.info("Iniciando verificación de huella");
+                
+                serialPortManager.clearBuffer();
+                Thread.sleep(100);
+                
+                boolean sent = serialPortManager.sendCommandNoResponse("VERIFY");
+                
+                if (!sent) {
+                    return new VerifyResult(false, -1, 0, "Error al enviar comando");
+                }
+                
+                Thread.sleep(200);
+                
+                return listenVerifyProcessSync();
+                
+            } catch (Exception e) {
+                logger.error("Error en verificación: {}", e.getMessage(), e);
+                return new VerifyResult(false, -1, 0, "Error: " + e.getMessage());
+            }
+        });
+    }
+    
+    private VerifyResult listenVerifyProcessSync() {
+        try {
+            long startTime = System.currentTimeMillis();
+            long timeout = 30000;
+            
+            while (System.currentTimeMillis() - startTime < timeout) {
+                String message = serialPortManager.readLine(500);
+                
+                if (message == null || message.isEmpty()) {
+                    continue;
+                }
+                
+                logger.debug("Verify msg: {}", message);
+                
+                if (message.contains("VERIFY:OK:")) {
+                    String[] parts = message.split(":");
+                    if (parts.length >= 4) {
+                        int id = Integer.parseInt(parts[2].trim());
+                        int confidence = Integer.parseInt(parts[3].trim());
+                        logger.info("✓ Verificación exitosa - ID: {}, Confianza: {}", id, confidence);
+                        return new VerifyResult(true, id, confidence, "Huella reconocida");
+                    }
+                } else if (message.contains("VERIFY:FAIL:NOT_FOUND")) {
+                    logger.warn("✗ Huella no registrada");
+                    return new VerifyResult(false, -1, 0, "Huella no registrada");
+                } else if (message.contains("VERIFY:FAIL:") || message.contains("ERROR")) {
+                    String[] parts = message.split(":", 3);
+                    String error = parts.length >= 3 ? parts[2] : "Error desconocido";
+                    return new VerifyResult(false, -1, 0, error);
+                } else if (message.contains("TIMEOUT")) {
+                    return new VerifyResult(false, -1, 0, "Tiempo de espera agotado");
+                }
+            }
+            
+            return new VerifyResult(false, -1, 0, "Timeout: No se colocó el dedo");
+            
+        } catch (Exception e) {
+            logger.error("Error escuchando verificación: {}", e.getMessage());
+            return new VerifyResult(false, -1, 0, "Error: " + e.getMessage());
+        }
+    }
+    
+    public CompletableFuture<Boolean> deleteFingerprint(int id) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isConnected()) {
+                logger.error("No hay conexión con Arduino");
+                return false;
+            }
+            
+            try {
+                logger.info("Eliminando huella ID: {}", id);
+                
+                serialPortManager.clearBuffer();
+                Thread.sleep(50);
+                
+                String response = serialPortManager.sendCommand("DELETE:" + id, COMMAND_TIMEOUT);
+                
+                if (response != null && response.contains("DELETE:OK:")) {
+                    logger.info("✓ Huella {} eliminada correctamente", id);
+                    return true;
+                } else {
+                    logger.error("✗ Error al eliminar huella {}", id);
+                    return false;
+                }
+                
+            } catch (Exception e) {
+                logger.error("Error eliminando huella: {}", e.getMessage(), e);
+                return false;
+            }
+        });
+    }
+    
+    public CompletableFuture<Boolean> clearDatabase() {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isConnected()) {
+                logger.error("No hay conexión con Arduino");
+                return false;
+            }
+            
+            try {
+                logger.info("Borrando base de datos del sensor");
+                
+                serialPortManager.clearBuffer();
+                Thread.sleep(50);
+                
+                String response = serialPortManager.sendCommand("CLEAR", 5000);
+                
+                if (response != null && response.contains("CLEAR:OK")) {
+                    logger.info("✓ Base de datos borrada correctamente");
+                    return true;
+                } else {
+                    logger.error("✗ Error al borrar base de datos");
+                    return false;
+                }
+                
+            } catch (Exception e) {
+                logger.error("Error borrando base de datos: {}", e.getMessage(), e);
+                return false;
+            }
+        });
+    }
+    
+    public CompletableFuture<Boolean> testSensor() {
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isConnected()) {
+                logger.error("No hay conexión con Arduino");
+                return false;
+            }
+            
+            try {
+                logger.info("Probando sensor");
+                
+                serialPortManager.clearBuffer();
+                Thread.sleep(50);
+                
+                String response = serialPortManager.sendCommand("TEST", 20000);
+                
+                if (response != null && response.contains("TEST:OK")) {
+                    logger.info("✓ Sensor funcionando correctamente");
+                    return true;
+                } else {
+                    logger.error("✗ Sensor no responde");
+                    return false;
+                }
+                
+            } catch (Exception e) {
+                logger.error("Error probando sensor: {}", e.getMessage(), e);
+                return false;
+            }
+        });
+    }
+    
+    public static class EnrollResult {
+        public final boolean success;
+        public final String message;
+        public final int id;
+        
+        public EnrollResult(boolean success, String message) {
+            this(success, message, -1);
+        }
+        
+        public EnrollResult(boolean success, String message, int id) {
+            this.success = success;
+            this.message = message;
+            this.id = id;
+        }
+    }
+    
+    public static class VerifyResult {
+        public final boolean success;
+        public final int id;
+        public final int confidence;
+        public final String message;
+        
+        public VerifyResult(boolean success, int id, int confidence, String message) {
+            this.success = success;
+            this.id = id;
+            this.confidence = confidence;
+            this.message = message;
+        }
+    }
+    
+    public static class SensorInfo {
+        public int capacity;
+        public int templateCount;
+        public int sensorBaudrate;
+    }
     
     public interface EnrollCallback {
         void onProgress(String message);
-        void onSuccess(int fingerprintId);
+        void onSuccess(int id);
         void onError(String error);
     }
     
